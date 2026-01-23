@@ -1,14 +1,11 @@
 import React from 'react';
-import Header from '../components/common/Header';
+import AppLayout from './AppLayout';
 
-const EmployeeLayout = ({ children }) => {
+const EmployeeLayout = ({ children, title = "Employee Portal" }) => {
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Header />
-            <main className="flex-grow container mx-auto px-4 py-8">
-                {children}
-            </main>
-        </div>
+        <AppLayout title={title} userRole="employee">
+            {children}
+        </AppLayout>
     );
 };
 

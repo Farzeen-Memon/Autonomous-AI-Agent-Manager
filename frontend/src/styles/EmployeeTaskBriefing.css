@@ -1,0 +1,68 @@
+:root {
+    --carbon-black: #0F0C1D;
+    --electric-purple: #8B7CFF;
+    --panel-bg: #1B1730;
+    --soft-white: #EDEBFF;
+    --muted-lavender: #B7B3E6;
+    --soft-cyan: #7CF3FF;
+}
+
+.employee-briefing-container {
+    background-color: var(--carbon-black);
+    color: var(--soft-white);
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #8B7CFF44;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #8B7CFF66;
+}
+
+.panel-border {
+    border: 1px solid rgba(139, 124, 255, 0.2);
+}
+
+.text-primary {
+    color: var(--electric-purple);
+}
+
+.text-lavender {
+    color: var(--muted-lavender);
+}
+
+.text-cyan {
+    color: var(--soft-cyan);
+}
+
+.bg-panel {
+    background-color: var(--panel-bg);
+}
+
+.bg-primary {
+    background-color: var(--electric-purple);
+}
+
+.bg-cyan {
+    background-color: var(--soft-cyan);
+}
+
+.border-primary {
+    border-color: var(--electric-purple);
+}
+
+.border-cyan {
+    border-color: var(--soft-cyan);
+}

@@ -1,10 +1,13 @@
 import React from 'react'
 import AppRoutes from './routes/AppRoutes'
+import { ThemeProvider } from './context/ThemeContext'
 import './index.css'
 
 function App() {
   return (
-    <AppRoutes />
+    <ThemeProvider>
+      <AppRoutes />
+    </ThemeProvider>
   )
 }
 

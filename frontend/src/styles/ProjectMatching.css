@@ -1,0 +1,75 @@
+.project-matching-container {
+    background-color: #0F0C1D;
+    min-height: 100vh;
+    font-family: 'Space Grotesk', sans-serif;
+    color: white;
+}
+
+.neural-glow {
+    box-shadow: 0 0 15px rgba(93, 230, 255, 0.15);
+}
+
+.custom-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: #352e6b;
+    border-radius: 8px;
+    outline: none;
+}
+
+.custom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #8B7CFF;
+    cursor: pointer;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.custom-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #8B7CFF;
+    cursor: pointer;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+/* Custom colors from tailwind config */
+.text-primary {
+    color: #8B7CFF;
+}
+
+.bg-primary {
+    background-color: #8B7CFF;
+}
+
+.text-neural-cyan {
+    color: #5DE6FF;
+}
+
+.bg-neural-cyan {
+    background-color: #5DE6FF;
+}
+
+.bg-surface-dark {
+    background-color: #1b1736;
+}
+
+.border-border-dark {
+    border-color: #352e6b;
+}
+
+.border-neural-cyan {
+    border-color: #5DE6FF;
+}
+
+/* Header blur */
+.header-blur {
+    backdrop-filter: blur(12px);
+    background-color: rgba(15, 12, 29, 0.5);
+}

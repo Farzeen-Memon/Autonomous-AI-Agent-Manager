@@ -1,0 +1,16 @@
+.card-depth {
+    background-color: #1B1730;
+    border: 1px solid rgba(139, 124, 255, 0.1);
+}
+
+.card-glow:hover {
+    box-shadow: 0 0 30px 2px rgba(139, 124, 255, 0.2);
+    border-color: #8B7CFF;
+    transform: translateY(-4px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.text-high-contrast {
+    color: #ffffff;
+    letter-spacing: -0.01em;
+}

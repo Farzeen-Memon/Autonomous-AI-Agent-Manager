@@ -1,0 +1,26 @@
+.glow-purple {
+    box-shadow: 0 0 20px rgba(139, 124, 255, 0.3);
+}
+
+.admin-gradient-btn {
+    background: linear-gradient(135deg, #8B7CFF 0%, #6D5AE6 100%);
+}
+
+.neural-highlight {
+    filter: hue-rotate(240deg) brightness(1.1) saturate(1.2);
+}
+
+.technical-grid {
+    background-color: #0F0C1D;
+    background-image:
+        linear-gradient(rgba(139, 124, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139, 124, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(rgba(139, 124, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139, 124, 255, 0.05) 1px, transparent 1px);
+    background-size: 80px 80px, 80px 80px, 20px 20px, 20px 20px;
+}
+
+.hud-scanline {
+    background: linear-gradient(to bottom, transparent 50%, rgba(139, 124, 255, 0.02) 50%);
+    background-size: 100% 4px;
+}

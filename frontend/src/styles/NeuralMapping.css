@@ -1,0 +1,93 @@
+:root {
+    --carbon-black: #0F0C1D;
+    --electric-purple: #8B7CFF;
+    --soft-cyan: #5DE6FF;
+    --soft-white: #EDEBFF;
+    --box-bg: #1B1730;
+    --surface-dark: rgba(27, 23, 54, 0.6);
+    --border-glow: rgba(139, 124, 255, 0.3);
+}
+
+.neural-mapping-body {
+    font-family: 'Space Grotesk', sans-serif;
+    background-color: #0F0C1D;
+}
+
+.bg-grid {
+    background-image:
+        linear-gradient(to right, rgba(139, 124, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(139, 124, 255, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+}
+
+.sphere-glow {
+    box-shadow: 0 0 60px 10px rgba(139, 124, 255, 0.4),
+        inset 0 0 30px rgba(139, 124, 255, 0.6);
+    background: radial-gradient(circle at 30% 30%, #a79aff, #8B7CFF);
+}
+
+.project-core-box {
+    background: var(--box-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(139, 124, 255, 0.4);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 124, 255, 0.1);
+}
+
+.hud-glass {
+    background: rgba(15, 12, 29, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(139, 124, 255, 0.2);
+}
+
+.filament {
+    position: absolute;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--electric-purple), transparent);
+    filter: drop-shadow(0 0 2px var(--electric-purple));
+    z-index: 10;
+    opacity: 0.4;
+}
+
+.filament-cyan {
+    background: linear-gradient(90deg, transparent, var(--soft-cyan), transparent);
+    filter: drop-shadow(0 0 2px var(--soft-cyan));
+}
+
+.profile-ring-purple {
+    box-shadow: 0 0 15px rgba(139, 124, 255, 0.6);
+    border: 2px solid var(--electric-purple);
+}
+
+.profile-ring-cyan {
+    box-shadow: 0 0 15px rgba(93, 230, 255, 0.6);
+    border: 2px solid var(--soft-cyan);
+}
+
+.drag-handle {
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.95);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(0.95);
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse-ring {
+    animation: pulse-ring 2s infinite ease-in-out;
+}

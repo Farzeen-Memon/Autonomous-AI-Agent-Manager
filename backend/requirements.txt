@@ -1,3 +1,11 @@
 fastapi
-uvicorn
-pydantic
+uvicorn[standard]
+beanie
+motor
+pydantic[email]
+pydantic-settings
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+bcrypt==4.0.1

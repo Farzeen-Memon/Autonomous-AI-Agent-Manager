@@ -1,11 +1,12 @@
 import React from 'react';
 import Login from '../components/auth/Login';
+import AuthLayout from '../layouts/AuthLayout';
 
 const LoginPage = () => {
     return (
-        <div className="h-screen bg-gray-200">
+        <AuthLayout>
             <Login />
-        </div>
+        </AuthLayout>
     );
 };
 

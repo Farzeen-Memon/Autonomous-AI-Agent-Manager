@@ -1,0 +1,97 @@
+.employee-calibration-container {
+    background-color: #0F0C1D;
+    min-height: 100-vh;
+    font-family: 'Space Grotesk', sans-serif;
+    color: white;
+    position: relative;
+    overflow-x: hidden;
+}
+
+.grid-bg {
+    background-image: linear-gradient(rgba(139, 124, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139, 124, 255, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+}
+
+.avatar-glow {
+    box-shadow: 0 0 20px rgba(139, 124, 255, 0.4);
+    border-color: #8B7CFF !important;
+}
+
+.premium-button-gradient {
+    background: linear-gradient(135deg, #8B7CFF 0%, #6355E6 100%);
+    box-shadow: 0 0 20px rgba(139, 124, 255, 0.3);
+}
+
+.premium-button-gradient:hover {
+    box-shadow: 0 0 30px rgba(139, 124, 255, 0.5);
+}
+
+.validation-glow {
+    text-shadow: 0 0 8px #5DE6FF;
+    color: #5DE6FF !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #1B1730;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #8B7CFF;
+}
+
+.employee-calibration-container input,
+.employee-calibration-container select {
+    background-color: #1B1730 !important;
+    border-color: rgba(139, 124, 255, 0.2) !important;
+    color: white !important;
+}
+
+.employee-calibration-container input:focus,
+.employee-calibration-container select:focus {
+    border-color: #8B7CFF !important;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(139, 124, 255, 0.2) !important;
+}
+
+/* Custom classes from the provided HTML */
+.text-primary {
+    color: #8B7CFF;
+}
+
+.text-secondary {
+    color: #5DE6FF;
+}
+
+.bg-primary {
+    background-color: #8B7CFF;
+}
+
+.bg-secondary {
+    background-color: #5DE6FF;
+}
+
+.border-primary {
+    border-color: #8B7CFF;
+}
+
+.border-secondary {
+    border-color: #5DE6FF;
+}
+
+.bg-card-bg {
+    background-color: #1B1730;
+}
+
+.bg-background-dark {
+    background-color: #0F0C1D;
+}

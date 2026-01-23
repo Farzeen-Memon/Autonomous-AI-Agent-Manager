@@ -1,0 +1,43 @@
+.project-details-container {
+    background-color: #0F0C1D;
+    min-height: 100vh;
+}
+
+.gauge-svg {
+    transform: rotate(-90deg);
+}
+
+.gauge-circle {
+    stroke-dasharray: 440;
+    stroke-dashoffset: 110;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+.employee-row:hover .remove-trigger {
+    opacity: 1;
+}
+
+.remove-trigger {
+    transition: all 0.2s ease;
+}
+
+.status-pulse {
+    animation: pulse-ring 2s infinite ease-in-out;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.95);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(0.95);
+        opacity: 0.5;
+    }
+}
