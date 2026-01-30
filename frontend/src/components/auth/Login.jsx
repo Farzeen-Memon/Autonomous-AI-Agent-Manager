@@ -1,19 +1,61 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../../context/UserContext';
+import { API_BASE_URL } from '../../utils/constants';
 
 const Login = () => {
     const navigate = useNavigate();
+    const { fetchProfile } = useUser();
     const [role, setRole] = useState('admin');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        if (role === 'admin') {
-            navigate('/admin/dashboard');
-        } else {
-            navigate('/employee');
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                // Security Fix: Strict Role Verification
+                const serverRole = data.role;
+
+                // If user tried to login as Admin but is actually Employee (or vice versa)
+                if (role !== serverRole) {
+                    // Fail the login
+                    alert('User not found. Please check your role selection.');
+                    return;
+                }
+
+                // Only if roles match, proceed to store credentials
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('role', serverRole);
+
+                await fetchProfile(); // Populate global state
+
+                if (serverRole === 'admin') {
+                    navigate('/admin/dashboard');
+                } else if (serverRole === 'employee') {
+                    navigate('/employee');
+                } else {
+                    alert('Unknown role. Contact support.');
+                }
+            } else if (response.status === 404) {
+                alert('User not found. Please Sign Up.');
+                // Optional: navigate('/signup');
+            } else {
+                const error = await response.json();
+                alert(error.detail || 'Login failed');
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            alert('Connection to neural core failed.');
         }
     };
 

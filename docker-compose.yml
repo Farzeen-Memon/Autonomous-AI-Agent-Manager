@@ -1,0 +1,12 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: nexo_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - nexo_data:/data/db
+    restart: always
+
+volumes:
+  nexo_data:

@@ -1,14 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 import Logo from '../components/common/Logo';
 import '../styles/EmployeeTaskBriefing.css';
 
 const EmployeeTaskBriefingPage = () => {
     const navigate = useNavigate();
+    const { user } = useUser();
 
     const handleLogout = () => {
         navigate('/login');
     };
+
+    // Fallbacks
+    const userName = user?.profile?.full_name || user?.email || 'Nexo Agent';
+    const userRole = user?.profile?.specialization || user?.skills?.[0]?.skill_name || 'Neural Node';
+    const userAvatar = user?.profile?.avatar_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCNaS-V8YMeBLMNMvhRxHjG5WbeYFnRUaErcDsblIA0iFAkPoySK8-NMialzcQAWv2Wa3AvMCKULSLGxG9yk6aXXuAW7LfKZzcQd4GcTKU7xs8g660ZaZ7-dZ18wFrLooQyzE-ov6iUou_7SBewXc3gxYtRbduy1mrUI-o0GOeh1FY2k9Nj8HrbAu75z_z0FWxT8HE1Jd6HtXI8OxnZ_hdD8ccsJ_SFAAKiz0UGviYD9UV7p_siYxsCexAxNA4I948Mx3NhaqLu9pY';
 
     return (
         <div className="employee-briefing-container flex h-screen overflow-hidden">
@@ -59,11 +66,11 @@ const EmployeeTaskBriefingPage = () => {
                         </button>
                         <div className="flex items-center gap-3 pl-6 border-l border-primary/20">
                             <div className="text-right">
-                                <p className="text-sm font-semibold text-white">Marcus Chen</p>
-                                <p className="text-xs text-lavender">Senior Systems Designer</p>
+                                <p className="text-sm font-semibold text-white">{userName}</p>
+                                <p className="text-xs text-lavender">{userRole}</p>
                             </div>
                             <div className="w-10 h-10 rounded-full border-2 border-primary/30 overflow-hidden">
-                                <img alt="Profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNaS-V8YMeBLMNMvhRxHjG5WbeYFnRUaErcDsblIA0iFAkPoySK8-NMialzcQAWv2Wa3AvMCKULSLGxG9yk6aXXuAW7LfKZzcQd4GcTKU7xs8g660ZaZ7-dZ18wFrLooQyzE-ov6iUou_7SBewXc3gxYtRbduy1mrUI-o0GOeh1FY2k9Nj8HrbAu75z_z0FWxT8HE1Jd6HtXI8OxnZ_hdD8ccsJ_SFAAKiz0UGviYD9UV7p_siYxsCexAxNA4I948Mx3NhaqLu9pY" />
+                                <img alt="Profile" className="w-full h-full object-cover" src={userAvatar} />
                             </div>
                             <button
                                 onClick={handleLogout}

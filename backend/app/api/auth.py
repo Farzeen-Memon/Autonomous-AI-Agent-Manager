@@ -19,6 +19,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    role: str
 
 @router.post("/signup", response_model=TokenResponse)
 async def signup(user_data: UserSignup):
@@ -36,6 +37,16 @@ async def signup(user_data: UserSignup):
     )
     await user.insert()
     
+    # Auto-create profile for all users
+    from app.models.employee import EmployeeProfile
+    profile = EmployeeProfile(
+        user_id=user.id,
+        full_name=user.email.split('@')[0], # Default name from email
+        specialization="System Administrator" if user.role == UserRole.ADMIN else "Unassigned",
+        avatar_url=""
+    )
+    await profile.insert()
+
     # Generate tokens
     access_token = create_access_token(data={"user_id": str(user.id), "role": user.role})
     refresh_token = create_refresh_token(data={"user_id": str(user.id)})
@@ -43,13 +54,20 @@ async def signup(user_data: UserSignup):
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "role": user.role
     }
 
 @router.post("/login", response_model=TokenResponse)
 async def login(user_data: UserLogin):
     user = await User.find_one(User.email == user_data.email)
-    if not user or not verify_password(user_data.password, user.password_hash):
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    if not verify_password(user_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -61,5 +79,6 @@ async def login(user_data: UserLogin):
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "role": user.role
     }

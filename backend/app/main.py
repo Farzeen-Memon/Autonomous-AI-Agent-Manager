@@ -24,7 +24,7 @@ async def startup_event():
 
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-app.include_router(employees.router, prefix="/employee", tags=["Employee"])
+app.include_router(employees.router, prefix="/employees", tags=["Employee"])
 app.include_router(projects.router, prefix="/projects", tags=["Project"])
 
 @app.get("/")

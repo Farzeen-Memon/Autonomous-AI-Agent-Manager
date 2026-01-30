@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+// Triggering re-build for real-time matching support
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/common/Logo';
+import { API_BASE_URL } from '../utils/constants';
 import '../styles/ProjectMatching.css';
 
 const ProjectMatchingPage = () => {
@@ -12,8 +14,131 @@ const ProjectMatchingPage = () => {
     const [priority, setPriority] = useState('Standard');
     const [skills, setSkills] = useState(['Systems Architecture', 'Full-Stack Engineering', 'Cloud Security']);
     const [newSkill, setNewSkill] = useState('');
-    const [experienceRequired, setExperienceRequired] = useState(5);
+    const [experienceRequired, setExperienceRequired] = useState(2);
     const [description, setDescription] = useState('Leveraging AI-Assisted Human Orchestration to synchronize high-performance engineering teams with complex project requirements.');
+
+    const [employees, setEmployees] = useState([]);
+    const [isMatching, setIsMatching] = useState(false);
+
+
+    const fetchEmployees = React.useCallback(async () => {
+        try {
+            const token = localStorage.getItem('token'); // Simplistic token retrieval
+            const response = await fetch(`${API_BASE_URL}/employees/`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📋 Fetched all employees (no scoring):', data.length, 'employees');
+                setEmployees(data);
+            } else {
+                console.error("Failed to fetch employees");
+            }
+        } catch (error) {
+            console.error("Error fetching employees:", error);
+        }
+    }, []);
+
+    const handleAutoDistribute = React.useCallback(async () => {
+        setSelectionMode('auto');
+        setIsMatching(true);
+
+        // Prepare project data for matching
+        const projectData = {
+            title: title || "Untitled Project",
+            description: description,
+            required_skills: skills.map(s => ({ skill_name: s, level: 'mid' })),
+            experience_required: parseFloat(experienceRequired),
+            assigned_team: []
+        };
+
+        console.log('🚀 Sending match request:', projectData);
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/projects/match-preview`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(projectData)
+            });
+
+            if (response.ok) {
+                const matches = await response.json();
+                console.log('✅ Received match results:', matches);
+                console.log('📊 First match structure:', matches[0]);
+                console.log('📊 First match score:', matches[0]?.score, 'match_score:', matches[0]?.match_score);
+
+                // Merge matches into the full employee list
+                setEmployees(prevEmployees => {
+                    console.log('🔄 Merging matches. Prev list count:', prevEmployees.length);
+                    const updated = prevEmployees.map(emp => {
+                        // Extract ID robustly
+                        const getEmpId = (e) => {
+                            if (!e) return null;
+                            const p = e.profile || e;
+                            return p.id || p._id || (typeof p === 'string' ? p : null);
+                        };
+
+                        const empId = getEmpId(emp);
+
+                        const match = matches.find(m => {
+                            const matchId = getEmpId(m) || m.employee_id;
+                            return String(matchId) === String(empId);
+                        });
+
+                        if (match) {
+                            console.log(`🎯 Match found for ${emp.profile?.full_name || 'unknown'}:`, match.score || match.match_score);
+                            return {
+                                ...emp,
+                                score: match.score !== undefined ? match.score : match.match_score,
+                                matched_skills: match.matched_skills,
+                                reasoning: match.reasoning,
+                                suggested_task: match.suggested_task
+                            };
+                        }
+                        return {
+                            ...emp,
+                            score: 0,
+                            matched_skills: [],
+                            reasoning: null
+                        };
+                    });
+
+                    const sorted = [...updated].sort((a, b) => (b.score || 0) - (a.score || 0));
+                    console.log('📊 Sorted results:', sorted.map(e => `${e.profile?.full_name}: ${e.score}`));
+                    return sorted;
+                });
+            } else {
+                const errorText = await response.text();
+                console.error("❌ Match failed:", errorText);
+            }
+        } catch (error) {
+            console.error("💥 Error during matching:", error);
+        } finally {
+            setIsMatching(false);
+        }
+    }, [title, description, skills, experienceRequired]);
+
+    // Initial fetch of all employees
+    React.useEffect(() => {
+        fetchEmployees();
+    }, [fetchEmployees]);
+
+    // Real-time matching (triggers whenever skills/title change)
+    React.useEffect(() => {
+        if (skills.length > 0) {
+            const timer = setTimeout(() => {
+                handleAutoDistribute();
+            }, 500); // Faster debounce for better UX
+            return () => clearTimeout(timer);
+        }
+    }, [skills, title, handleAutoDistribute]);
+
 
     const handleAddSkill = (e) => {
         if (e.key === 'Enter' && newSkill.trim()) {
@@ -38,7 +163,7 @@ const ProjectMatchingPage = () => {
                 status: 'draft'
             };
 
-            const response = await fetch('http://localhost:8000/projects/', {
+            const response = await fetch(`${API_BASE_URL}/projects/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -49,7 +174,8 @@ const ProjectMatchingPage = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                navigate('/admin/neural-mapping', { state: { projectId: data._id, title: title || "Untitled Project" } });
+                const actualProjectId = data.id || data._id;
+                navigate('/admin/neural-mapping', { state: { projectId: actualProjectId, title: title || "Untitled Project" } });
             } else {
                 console.error('Failed to create project');
                 navigate('/admin/neural-mapping');
@@ -71,7 +197,7 @@ const ProjectMatchingPage = () => {
                         <nav className="hidden md:flex items-center gap-6">
                             <a className="text-sm font-medium text-slate-400 hover:text-white transition-opacity" href="#" onClick={(e) => { e.preventDefault(); navigate('/admin/dashboard'); }}>Dashboard</a>
                             <a className="text-sm font-medium text-primary" href="#" onClick={(e) => e.preventDefault()}>Projects</a>
-                            <a className="text-sm font-medium text-slate-400 hover:text-white transition-opacity" href="#" onClick={(e) => e.preventDefault()}>Engineers</a>
+                            <a className="text-sm font-medium text-slate-400 hover:text-white transition-opacity" href="#" onClick={(e) => { e.preventDefault(); navigate('/admin/employees'); }}>Employees</a>
                             <a className="text-sm font-medium text-slate-400 hover:text-white transition-opacity" href="#" onClick={(e) => e.preventDefault()}>Settings</a>
                         </nav>
                     </div>
@@ -134,8 +260,11 @@ const ProjectMatchingPage = () => {
                                 <div className="grid grid-cols-2 gap-6">
                                     <div>
                                         <label className="block text-xl font-medium text-slate-300 mb-3">Deadline</label>
-                                        <div className="relative">
-                                            <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">calendar_today</span>
+                                        <div className="relative cursor-pointer" onClick={(e) => {
+                                            const input = e.currentTarget.querySelector('input');
+                                            if (input && 'showPicker' in input) input.showPicker();
+                                        }}>
+                                            <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm pointer-events-none">calendar_today</span>
                                             <input
                                                 className="w-full bg-[#1b1736] border-[#352e6b] rounded-lg px-4 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none"
                                                 type="date"
@@ -228,7 +357,12 @@ const ProjectMatchingPage = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-[30px] font-bold text-white">Recommended Personnel</h3>
-                                        <p className="text-[15px] text-neural-cyan/70 font-mono uppercase tracking-widest">Status: AI-Assisted Matching Active</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[15px] text-neural-cyan/70 font-mono uppercase tracking-widest">
+                                                {isMatching ? "Scanning Human Potential..." : "Status: AI-Assisted Matching Active"}
+                                            </p>
+                                            {isMatching && <div className="w-2 h-2 rounded-full bg-neural-cyan animate-pulse"></div>}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center bg-[#0F0C1D]/80 p-1 rounded-lg border border-[#352e6b]">
@@ -239,7 +373,7 @@ const ProjectMatchingPage = () => {
                                         Manual Select
                                     </button>
                                     <button
-                                        onClick={() => setSelectionMode('auto')}
+                                        onClick={handleAutoDistribute}
                                         className={`px-6 py-2 text-base font-bold rounded-md transition-colors ${selectionMode === 'auto' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white'}`}
                                     >
                                         Auto-Distribute
@@ -247,46 +381,58 @@ const ProjectMatchingPage = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-5 flex-1">
-                                <p className="text-base font-semibold text-slate-500 uppercase tracking-widest px-1">Top Engineering Candidates</p>
-
-                                <CandidateCard
-                                    name="Felix Chen"
-                                    role="Senior Systems Architect"
-                                    score="98.4%"
-                                    img="https://lh3.googleusercontent.com/aida-public/AB6AXuAaOZf7n7G1HMD5clSidK04vMqgB31u5IonIUlUo9FKjMHYO80Ztal1uJ7g1_jZtAqe7rEhytZ_pmfsx64eS3Mvr--vNDLVdgVm1YSo84VEfvfzFxfQL7rkf7R949hyiDDq7B9AJQgVZDonf9LROj1BxiIThwsmGRIO5PUVdd5pNyuR6RAO81YDtYHRErMpO8tTpqeM4jMuDFe_d-4WWR2cnWeLQGNNijksvaUk3zi1fejNMmGmCzYkzaruZju7Tbj3Xd-LJ41HijI"
-                                    status="online"
-                                    defaultChecked={true}
-                                />
-
-                                <CandidateCard
-                                    name="Aria Volkov"
-                                    role="Lead Full-Stack Engineer"
-                                    score="94.1%"
-                                    img="https://lh3.googleusercontent.com/aida-public/AB6AXuBUfD6CIXhWjgj7zvMg2TvuCXa6r5yRiX-pYjpZeO5iYHxqjrhMfmT2e4LIsM4OSULrJrgVeOJhgQN4pcYdHiPv1V7H05h-6Ev5smrzUpyagaQj6AOedZb34gWa24voQW-66-1N_pmIGPk7SXRrOxOVUPjKl2xs36cLEXo9CfK1D_PcTKJkHKfss5PA9xcZ0mPfpEEB-XIjZ1VA3aVY1Icy5gIMLZs-EiEHkZIsjkBaqQcdJA-OkAfvy5-PoHXej0c4pZtXfU36ae4"
-                                    status="online"
-                                    defaultChecked={true}
-                                />
-
-                                <CandidateCard
-                                    name="Xavier Thorne"
-                                    role="Cybersecurity Lead"
-                                    score="87.5%"
-                                    img="https://lh3.googleusercontent.com/aida-public/AB6AXuDLtIqED_GoRiDeLf9LXQSzvrmPscI2CnATcwuss7-9yoikYjc35Sy3eQsja62VVACS0iUoIfA2sbLZbCPzFpN-ADTDZ7kb9X-zR2e3wFvYYFMlxbf-PehrE_Oj-w1RTpTrDdY-Vtdfs6kFeqMA_CB6dsbGMvTJZcWLBEaFaKRgkdCWvRGbfpq9RPPKY9N7f0_8eodCgWgrgC_-Ywse9pVsa9QpLonJb0VhM_S7BcQ7Rru3FE313ylovBQZ1_0tR_Z3w4D79zLjASY"
-                                    status="away"
-                                    defaultChecked={false}
-                                />
-
-                                <div className="p-8 bg-[#0F0C1D]/20 rounded-xl border border-dashed border-[#352e6b]/60 flex items-center justify-center">
-                                    <div className="flex flex-col items-center gap-3 py-6">
-                                        <div className="flex gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-[#5DE6FF]/50 animate-pulse"></div>
-                                            <div className="w-2 h-2 rounded-full bg-[#5DE6FF]/50 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                                            <div className="w-2 h-2 rounded-full bg-[#5DE6FF]/50 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                                        </div>
-                                        <p className="text-base text-slate-500 uppercase tracking-[0.25em] font-mono">Analyzing personnel availability...</p>
-                                    </div>
+                            <div className="space-y-4 flex-1">
+                                <div className="flex items-center justify-between px-1 mb-2">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Top Employee Candidates</p>
+                                    {isMatching && <div className="text-[10px] text-primary animate-pulse font-mono font-bold">CALIBRATING NEURAL WEIGHTS...</div>}
                                 </div>
+
+                                {isMatching && employees.length === 0 ? (
+                                    <div className="space-y-4">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="h-32 bg-[#0F0C1D]/40 rounded-xl border border-[#352e6b] animate-pulse relative overflow-hidden">
+                                                <div className="absolute inset-0 loading-bar opacity-20"></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-5">
+                                        {employees.map((emp, index) => (
+                                            <div
+                                                key={emp.profile?.id || emp.profile?._id || index}
+                                                className="relative group animate-slide-up"
+                                                style={{ animationDelay: `${index * 0.1}s` }}
+                                            >
+                                                <CandidateCard
+                                                    name={emp.profile?.full_name || emp.employee_name}
+                                                    role={emp.profile?.specialization || "Unassigned"}
+                                                    score={emp.score !== undefined ? emp.score : (emp.match_score !== undefined ? emp.match_score : "N/A")}
+                                                    img={emp.profile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + (emp.profile?.full_name || emp.employee_name)}
+                                                    status="online"
+                                                    defaultChecked={false}
+                                                    matchedSkills={emp.matched_skills || []}
+                                                />
+                                                {emp.reasoning && (
+                                                    <div className="absolute top-full left-0 right-0 z-10 p-4 bg-[#1b1736] text-sm text-slate-300 rounded-b-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 border border-[#352e6b] -translate-y-2 group-hover:translate-y-0 pointer-events-none">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="material-symbols-outlined text-primary text-base">psychology</span>
+                                                            <span className="text-primary font-bold uppercase text-xs tracking-wider">AI Matching Reasoning</span>
+                                                        </div>
+                                                        {emp.reasoning}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {!isMatching && employees.length === 0 && (
+                                    <div className="p-12 text-center bg-[#0F0C1D]/20 rounded-xl border border-dashed border-[#352e6b]">
+                                        <span className="material-symbols-outlined text-4xl text-slate-600 mb-3">group_off</span>
+                                        <p className="text-slate-400">No personnel matches identified for current criteria.</p>
+                                        <button onClick={fetchEmployees} className="mt-4 text-primary text-sm hover:underline font-medium">Clear filters and show all talent</button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-10 pt-8 border-t border-[#352e6b] flex justify-between items-center">
@@ -294,7 +440,7 @@ const ProjectMatchingPage = () => {
                                     <span className="material-symbols-outlined text-sm">verified_user</span>
                                     Orchestration confidence: 0.9982 (Verified Human Profiles)
                                 </div>
-                                <button className="text-base font-bold text-primary hover:underline underline-offset-4 transition-all">Refresh Talent Pool</button>
+                                <button onClick={fetchEmployees} className="text-base font-bold text-primary hover:underline underline-offset-4 transition-all">Refresh Talent Pool</button>
                             </div>
                         </section>
                     </div>
@@ -317,28 +463,67 @@ const ProjectMatchingPage = () => {
     );
 };
 
-const CandidateCard = ({ name, role, score, img, status, defaultChecked }) => (
-    <div className="flex items-center justify-between p-5 bg-[#0F0C1D]/60 rounded-xl border border-[#352e6b] group hover:border-[#5DE6FF]/50 transition-all">
-        <div className="flex items-center gap-5">
-            <div className="relative">
-                <img alt={name} className="w-14 h-14 rounded-lg bg-slate-800 object-cover border border-white/5" src={img} />
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${status === 'online' ? 'bg-green-500' : 'bg-amber-500'} border-2 border-[#0F0C1D] rounded-full`}></div>
+const CandidateCard = ({ name, role, score, img, status, defaultChecked, matchedSkills }) => {
+    // Determine status dot color based on score
+    const getStatusColor = () => {
+        if (score === "N/A" || score === undefined || score === null) return 'bg-gray-500';
+        const numScore = parseFloat(score);
+        if (numScore >= 15) return 'bg-green-500';
+        if (numScore >= 10) return 'bg-yellow-500';
+        return 'bg-red-500';
+    };
+
+    const getScoreColor = () => {
+        if (score === "N/A" || score === undefined || score === null) return 'text-slate-400';
+        const numScore = parseFloat(score);
+        if (numScore >= 15) return 'text-green-500';
+        if (numScore >= 10) return 'text-yellow-500';
+        return 'text-red-400';
+    };
+
+    return (
+        <div className="flex flex-col p-5 bg-[#0F0C1D]/60 rounded-xl border border-[#352e6b] group hover:border-primary/50 transition-all candidate-card-hover">
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-5">
+                    <div className="relative">
+                        <img alt={name} className="w-14 h-14 rounded-lg bg-slate-800 object-cover border border-white/5" src={img} />
+                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor()} border-2 border-[#0F0C1D] rounded-full`}></div>
+                    </div>
+                    <div>
+                        <p className="font-bold text-white text-lg">{name}</p>
+                        <p className="text-sm text-slate-400 font-mono tracking-tight uppercase">{role}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-8">
+                    <div className="text-right group-hover:scale-110 transition-transform">
+                        <div className={`${getScoreColor()} font-bold text-3xl leading-none`}>
+                            {(score !== undefined && score !== null && score !== "N/A") ? Number(score).toFixed(1) : "N/A"}
+                        </div>
+                        <div className="text-[10px] text-slate-500 uppercase font-mono tracking-tighter">Match Score</div>
+                    </div>
+                    <div className="w-px h-10 bg-[#352e6b]"></div>
+                    <Toggle defaultChecked={defaultChecked} />
+                </div>
             </div>
-            <div>
-                <p className="font-bold text-white text-lg">{name}</p>
-                <p className="text-sm text-slate-400">{role}</p>
-            </div>
+
+            {matchedSkills && matchedSkills.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-1">
+                    {matchedSkills.slice(0, 4).map((skill, i) => (
+                        <span key={i} className="text-[9px] px-2 py-0.5 bg-primary/5 text-primary/80 border border-primary/20 rounded-md uppercase font-mono flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-primary"></span>
+                            {skill}
+                        </span>
+                    ))}
+                    {matchedSkills.length > 4 && (
+                        <span className="text-[9px] px-2 py-0.5 bg-slate-800 text-slate-400 border border-slate-700 rounded-md uppercase font-mono">
+                            +{matchedSkills.length - 4} More
+                        </span>
+                    )}
+                </div>
+            )}
         </div>
-        <div className="flex items-center gap-8">
-            <div className="text-right">
-                <div className="text-neural-cyan font-bold text-2xl leading-none">{score}</div>
-                <div className="text-[15px] text-neural-cyan/60 uppercase font-mono tracking-tighter">Match Score</div>
-            </div>
-            <div className="w-px h-10 bg-[#352e6b]"></div>
-            <Toggle defaultChecked={defaultChecked} />
-        </div>
-    </div>
-);
+    );
+};
 
 const Toggle = ({ defaultChecked }) => {
     const [checked, setChecked] = useState(defaultChecked);

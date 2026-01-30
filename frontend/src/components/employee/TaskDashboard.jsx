@@ -1,12 +1,33 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from '../../utils/constants';
 
 const TaskDashboard = () => {
-    const tasks = [
-        { id: 1, title: 'Setup Auth0 Integration', project: 'Legacy Migration', priority: 'High', status: 'todo', dueDate: 'Tomorrow' },
-        { id: 2, title: 'Review PR #402', project: 'Legacy Migration', priority: 'Medium', status: 'todo', dueDate: 'Friday' },
-        { id: 3, title: 'Implement Dashboard Charts', project: 'Nexo Analytics', priority: 'High', status: 'in-progress', dueDate: 'Today' },
-        { id: 4, title: 'API Schema Design', project: 'Nexo Analytics', priority: 'Low', status: 'done', dueDate: 'Yesterday' },
-    ];
+    const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    React.useEffect(() => {
+        const fetchMyProjects = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/projects/my-projects`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setProjects(data);
+                }
+            } catch (error) {
+                console.error('Error fetching projects:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMyProjects();
+    }, []);
+
+    // Helper to map tasks (if we had them)
+    // For now, let's treat projects as "active deployments"
 
     return (
         <div className="task-dashboard fade-in">
@@ -21,84 +42,45 @@ const TaskDashboard = () => {
             </div>
 
             <div className="kanban-board">
-                {/* To Do Column */}
-                <div className="kanban-column">
-                    <div className="kanban-column-header">
-                        <div className="kanban-column-title">
-                            <span className="kanban-column-indicator" style={{ backgroundColor: '#F59E0B' }}></span>
-                            To Do
-                        </div>
-                        <span className="kanban-column-count">{tasks.filter(t => t.status === 'todo').length}</span>
-                    </div>
-                    <div className="kanban-column-content">
-                        {tasks.filter(t => t.status === 'todo').map(task => (
-                            <div key={task.id} className="task-card card">
-                                <div className="task-card-header">
-                                    <span className={`badge badge-${task.priority === 'High' ? 'error' : task.priority === 'Medium' ? 'warning' : 'neutral'}`}>
-                                        {task.priority}
-                                    </span>
-                                </div>
-                                <h4 className="task-card-title">{task.title}</h4>
-                                <p className="task-card-project">{task.project}</p>
-                                <div className="task-card-footer">
-                                    <div className="task-card-due">
-                                        <span className="material-icons-outlined" style={{ fontSize: '14px' }}>schedule</span>
-                                        {task.dueDate}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* In Progress Column */}
-                <div className="kanban-column">
+                {/* Active Deployments Column */}
+                <div className="kanban-column" style={{ flex: '1 1 100%' }}>
                     <div className="kanban-column-header">
                         <div className="kanban-column-title">
                             <span className="kanban-column-indicator" style={{ backgroundColor: 'var(--accent-primary)' }}></span>
-                            In Progress
+                            Assigned Neural Deployments
                         </div>
-                        <span className="kanban-column-count">{tasks.filter(t => t.status === 'in-progress').length}</span>
+                        <span className="kanban-column-count">{loading ? '...' : projects.length}</span>
                     </div>
-                    <div className="kanban-column-content">
-                        {tasks.filter(t => t.status === 'in-progress').map(task => (
-                            <div key={task.id} className="task-card card card-active">
-                                <div className="task-card-header">
-                                    <span className={`badge badge-${task.priority === 'High' ? 'error' : task.priority === 'Medium' ? 'warning' : 'neutral'}`}>
-                                        {task.priority}
-                                    </span>
-                                </div>
-                                <h4 className="task-card-title">{task.title}</h4>
-                                <p className="task-card-project">{task.project}</p>
-                                <div className="task-card-progress">
-                                    <div className="progress-bar" style={{ maxWidth: '100%' }}>
-                                        <div className="progress-fill" style={{ width: '65%' }}></div>
+                    <div className="kanban-column-content" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                        {loading ? (
+                            <div className="p-10 text-center text-slate-500 font-mono text-xs uppercase tracking-widest">
+                                Synchronizing Neural Links...
+                            </div>
+                        ) : projects.length === 0 ? (
+                            <div className="p-10 text-center text-slate-500 italic">
+                                No active neural deployments assigned to your node.
+                            </div>
+                        ) : (
+                            projects.map(project => (
+                                <div key={project._id} className="task-card card card-active hover:border-primary/50 transition-all cursor-pointer">
+                                    <div className="task-card-header">
+                                        <span className="badge badge-success uppercase tracking-wider text-[10px]">Active</span>
+                                        <span className="text-[10px] text-slate-500 font-mono">ID: {project._id.substring(0, 8)}</span>
+                                    </div>
+                                    <h4 className="task-card-title">{project.title}</h4>
+                                    <p className="task-card-project line-clamp-2">{project.description}</p>
+                                    <div className="task-card-progress mt-4">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-[10px] font-bold uppercase text-primary">Neural Optimization</span>
+                                            <span className="text-[10px] font-bold text-primary">85%</span>
+                                        </div>
+                                        <div className="progress-bar">
+                                            <div className="progress-fill" style={{ width: '85%' }}></div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Done Column */}
-                <div className="kanban-column">
-                    <div className="kanban-column-header">
-                        <div className="kanban-column-title">
-                            <span className="kanban-column-indicator" style={{ backgroundColor: 'var(--success)' }}></span>
-                            Done
-                        </div>
-                        <span className="kanban-column-count">{tasks.filter(t => t.status === 'done').length}</span>
-                    </div>
-                    <div className="kanban-column-content">
-                        {tasks.filter(t => t.status === 'done').map(task => (
-                            <div key={task.id} className="task-card card task-card-done">
-                                <h4 className="task-card-title">{task.title}</h4>
-                                <p className="task-card-project">{task.project}</p>
-                                <div className="task-card-footer">
-                                    <span className="material-icons-outlined" style={{ fontSize: '16px', color: 'var(--success)' }}>check_circle</span>
-                                </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             </div>

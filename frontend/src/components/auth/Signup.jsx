@@ -1,26 +1,80 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useUser } from '../../context/UserContext';
+import { API_BASE_URL } from '../../utils/constants';
 
 const Signup = () => {
     const navigate = useNavigate();
-    const [role, setRole] = useState('employee');
+    const location = useLocation();
+    const [role, setRole] = useState(location.state?.initialRole || 'employee');
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         password: '',
         confirmPassword: ''
     });
+    const [passwordRequirements, setPasswordRequirements] = useState({
+        length: false,
+        number: false,
+        special: false,
+        uppercase: false
+    });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const handleSignup = (e) => {
+    const handlePasswordChange = (value) => {
+        setFormData({ ...formData, password: value });
+        setPasswordRequirements({
+            length: value.length >= 8,
+            number: /[0-9]/.test(value),
+            special: /[!@#$%^&*]/.test(value),
+            uppercase: /[A-Z]/.test(value)
+        });
+    };
+
+    const handleSignup = async (e) => {
         e.preventDefault();
-        if (formData.password !== formData.confirmPassword) {
-            alert('Passwords do not match!');
+
+        const { length, number, special, uppercase } = passwordRequirements;
+        if (!(length && number && special && uppercase)) {
+            alert('Please meet all password requirements for a secure access key.');
             return;
         }
-        // Simulate signup success
-        navigate('/role-selection');
+
+        if (formData.password !== formData.confirmPassword) {
+            alert('Access Keys do not match!');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    role: role
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('role', role);
+
+                if (role === 'admin') {
+                    navigate('/admin-provisioning');
+                } else {
+                    navigate('/employee-calibration');
+                }
+            } else {
+                const error = await response.json();
+                alert(error.detail || 'Signup failed');
+            }
+        } catch (err) {
+            console.error('Signup error:', err);
+            alert('Neural node registration failed.');
+        }
     };
 
     return (
@@ -88,7 +142,7 @@ const Signup = () => {
                             className="input-replicated"
                             placeholder="••••••••••••"
                             value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            onChange={(e) => handlePasswordChange(e.target.value)}
                             required
                         />
                         <button
@@ -101,6 +155,24 @@ const Signup = () => {
                                 {showPassword ? 'visibility' : 'visibility_off'}
                             </span>
                         </button>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 px-1">
+                        <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.length ? 'opacity-100' : 'opacity-40'}`}>
+                            <span className={`w-1 h-1 rounded-full ${passwordRequirements.length ? 'bg-secondary' : 'bg-slate-500'}`}></span>
+                            <span className="text-[8px] uppercase font-bold text-slate-400">8+ CHARACTERS</span>
+                        </div>
+                        <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.uppercase ? 'opacity-100' : 'opacity-40'}`}>
+                            <span className={`w-1 h-1 rounded-full ${passwordRequirements.uppercase ? 'bg-secondary' : 'bg-slate-500'}`}></span>
+                            <span className="text-[8px] uppercase font-bold text-slate-400">UPPERCASE</span>
+                        </div>
+                        <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.number ? 'opacity-100' : 'opacity-40'}`}>
+                            <span className={`w-1 h-1 rounded-full ${passwordRequirements.number ? 'bg-secondary' : 'bg-slate-500'}`}></span>
+                            <span className="text-[8px] uppercase font-bold text-slate-400">NUMBER</span>
+                        </div>
+                        <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.special ? 'opacity-100' : 'opacity-40'}`}>
+                            <span className={`w-1 h-1 rounded-full ${passwordRequirements.special ? 'bg-secondary' : 'bg-slate-500'}`}></span>
+                            <span className="text-[8px] uppercase font-bold text-slate-400">SYMBOL</span>
+                        </div>
                     </div>
                 </div>
 

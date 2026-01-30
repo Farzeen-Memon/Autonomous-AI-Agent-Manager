@@ -1,14 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 import Logo from '../components/common/Logo';
+import { API_BASE_URL } from '../utils/constants';
 import '../styles/AdminProvisioning.css';
 
 const AdminProvisioningPage = () => {
     const navigate = useNavigate();
+    const { fetchProfile } = useUser();
     const fileInputRef = useRef(null);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [selectedAvatar, setSelectedAvatar] = useState('circuit'); // default selection
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [passwordRequirements, setPasswordRequirements] = useState({
         length: false,
         number: false,
@@ -27,22 +33,88 @@ const AdminProvisioningPage = () => {
         });
     };
 
-    const handleAuthorize = (e) => {
+    const handleAuthorize = async (e) => {
         e.preventDefault();
         const { length, number, special, uppercase } = passwordRequirements;
-        if (length && number && special && uppercase) {
-            navigate('/admin');
-        } else {
+        if (!(length && number && special && uppercase)) {
             alert('Please meet all password requirements for a strong access key.');
+            return;
+        }
+
+        try {
+            // 1. Create User Account (Signup)
+            const signupResponse = await fetch(`${API_BASE_URL}/auth/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password,
+                    role: 'admin'
+                })
+            });
+
+            if (!signupResponse.ok) {
+                const error = await signupResponse.json();
+                throw new Error(error.detail || 'Account creation failed');
+            }
+
+            const data = await signupResponse.json();
+            const token = data.access_token;
+
+            // Store token
+            localStorage.setItem('token', token);
+            localStorage.setItem('role', 'admin');
+
+            // 2. Create Profile using the new token
+            const response = await fetch(`${API_BASE_URL}/employees/profile`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    full_name: name,
+                    avatar_url: previewUrl || null
+                })
+            });
+
+            if (response.ok) {
+                await fetchProfile();
+                navigate('/admin/dashboard');
+            } else {
+                const error = await response.json();
+                throw new Error(error.detail || 'Profile activation failed');
+            }
+        } catch (err) {
+            console.error('Provisioning error:', err);
+            let errorMessage = 'System activation failed.';
+            if (typeof err === 'string') errorMessage = err;
+            else if (err.message) errorMessage = err.message;
+            alert(errorMessage);
         }
     };
 
-    const handleFileUpload = (e) => {
+    const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (file) {
-            const url = URL.createObjectURL(file);
-            setPreviewUrl(url);
+            const base64 = await convertToBase64(file);
+            setPreviewUrl(base64);
         }
+    };
+
+    const convertToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const fileReader = new FileReader();
+            fileReader.readAsDataURL(file);
+            fileReader.onload = () => {
+                resolve(fileReader.result);
+            };
+            fileReader.onerror = (error) => {
+                reject(error);
+            };
+        });
     };
 
     return (
@@ -180,14 +252,26 @@ const AdminProvisioningPage = () => {
                             <div className="relative">
                                 <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Full Name</label>
                                 <div className="relative">
-                                    <input className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-sm" placeholder="Enter Full Administrator Name" type="text" />
+                                    <input
+                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[19px]"
+                                        placeholder="Enter Full Administrator Name"
+                                        type="text"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                    />
                                     <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary opacity-70 text-lg">badge</span>
                                 </div>
                             </div>
                             <div className="relative">
                                 <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Enterprise Email</label>
                                 <div className="relative">
-                                    <input className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-sm" placeholder="admin@enterprise-nexo.ai" type="email" />
+                                    <input
+                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[19px]"
+                                        placeholder="admin@enterprise-nexo.ai"
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                    />
                                     <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary opacity-70 text-lg">alternate_email</span>
                                 </div>
                             </div>
@@ -195,14 +279,23 @@ const AdminProvisioningPage = () => {
                                 <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Access Key (Password)</label>
                                 <div className="relative">
                                     <input
-                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-sm"
+                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[19px] pr-20"
                                         placeholder="••••••••••••••••"
-                                        type="password"
+                                        type={showPassword ? 'text' : 'password'}
                                         value={password}
                                         onChange={handlePasswordChange}
                                         required
                                     />
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="text-secondary hover:text-white transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">
+                                                {showPassword ? 'visibility_off' : 'visibility'}
+                                            </span>
+                                        </button>
                                         {Object.values(passwordRequirements).every(v => v) ? (
                                             <span className="material-symbols-outlined text-green-400 text-sm">check_circle</span>
                                         ) : (

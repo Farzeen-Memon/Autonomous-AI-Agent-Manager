@@ -1,16 +1,19 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 import Logo from '../components/common/Logo';
+import { API_BASE_URL } from '../utils/constants';
 import '../styles/AdminDashboard.css';
 
 const AdminDashboardPage = () => {
     const navigate = useNavigate();
+    const { user, logout: contextLogout } = useUser();
     const [projects, setProjects] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
 
     const fetchProjects = async () => {
         try {
-            const response = await fetch('http://localhost:8000/projects/', {
+            const response = await fetch(`${API_BASE_URL}/projects/`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
@@ -35,7 +38,7 @@ const AdminDashboardPage = () => {
         if (!window.confirm('Are you sure you want to delete this project?')) return;
 
         try {
-            const response = await fetch(`http://localhost:8000/projects/${projectId}`, {
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -108,12 +111,16 @@ const AdminDashboardPage = () => {
                         <p className="text-xs text-slate-600 dark:text-slate-300">7.2 GB of 10 GB used</p>
                     </div>
                     <div className="mt-6 flex items-center gap-3">
-                        <div className="size-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border border-slate-300 dark:border-slate-600">
-                            <img alt="Avatar" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApa8T3RAv9clsc5DhbcX4VxQD-epEykdQ-uyAwrMW6Wd4HSmkAO-ERaOTetQYFbZy_KGircf5cbt-b2Za6nn7mw6YzghmOwonZXhmtQvw0w5VQTvMeDYA__8AiYS-EGE1x7CMJJgyQLddgGHv4m-DdiH43cAKF4TqRZKiFmc4xoPRGl_acTa5GU7G0RhQUstmIIN8ZEAU1AlnvwR494LeD-F_3xy9EExGOwrqx0GFqbR6NUBs9UWKGF-r4qY78FUQlhUV0rX_ow8Q" />
+                        <div className="size-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border border-slate-300 dark:border-slate-600 flex items-center justify-center">
+                            {user?.profile?.avatar_url ? (
+                                <img alt="Avatar" className="w-full h-full object-cover" src={user.profile.avatar_url} />
+                            ) : (
+                                <span className="material-symbols-outlined text-slate-400">person</span>
+                            )}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold truncate">Alex Sterling</p>
-                            <p className="text-xs text-slate-500 truncate">Admin Access</p>
+                            <p className="text-sm font-bold truncate">{user?.profile?.full_name || 'Admin Node'}</p>
+                            <p className="text-xs text-slate-500 truncate">{user?.role || 'Admin'}</p>
                         </div>
                     </div>
                 </div>
@@ -140,7 +147,10 @@ const AdminDashboardPage = () => {
                             <span>Create New Project</span>
                         </button>
                         <button
-                            onClick={() => navigate('/login')}
+                            onClick={() => {
+                                contextLogout();
+                                navigate('/login');
+                            }}
                             className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-red-500 hover:bg-red-500/5 transition-all"
                             title="Logout"
                         >
@@ -151,84 +161,60 @@ const AdminDashboardPage = () => {
 
                 {/* Content Padding */}
                 <div className="p-8">
-                    {/* Headline Section */}
+                    {/* Project Grid - Active */}
                     <div className="mb-8 flex items-end justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight mb-2">Active Projects</h1>
-                            <p className="text-slate-500 dark:text-slate-400">Monitoring 12 enterprise-grade deployments across 4 clusters.</p>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
-                            <span>Sort by:</span>
-                            <select className="bg-transparent border-none focus:ring-0 cursor-pointer text-primary p-0">
-                                <option>Recently Modified</option>
-                                <option>Status</option>
-                                <option>Progress</option>
-                            </select>
+                            <h1 className="text-3xl font-bold tracking-tight mb-2">Active Neural Deployments</h1>
+                            <p className="text-slate-500 dark:text-slate-400">Synchronizing resources for {projects.filter(p => !p.status || p.status === 'draft').length} active drafts.</p>
                         </div>
                     </div>
 
-                    {/* Project Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                         {loading ? (
-                            <div className="col-span-full py-20 text-center text-slate-500">
+                            <div className="col-span-full py-10 text-center text-slate-500">
                                 <span className="material-symbols-outlined animate-spin text-4xl mb-4">refresh</span>
-                                <p className="font-mono uppercase tracking-[0.2em]">Synchronizing Portfolio...</p>
                             </div>
-                        ) : projects.length === 0 ? (
-                            <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                                <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-white/10 mb-4">folder_off</span>
-                                <h3 className="text-xl font-bold mb-2">Portfolio Empty</h3>
-                                <p className="text-slate-500 mb-6">No active neural projects detected in the current workspace.</p>
-                                <button
-                                    onClick={() => navigate('/admin/project-matching')}
-                                    className="text-primary font-bold hover:underline underline-offset-4"
-                                >
-                                    Initialize First Project
-                                </button>
+                        ) : projects.filter(p => !p.status || p.status === 'draft').length === 0 ? (
+                            <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl opacity-60">
+                                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">No Active Drafts Detected</p>
                             </div>
                         ) : (
-                            projects.map(project => (
-                                <div
+                            projects.filter(p => !p.status || p.status === 'draft').map(project => (
+                                <ProjectCard
                                     key={project._id}
-                                    onClick={() => navigate('/admin/project-details', { state: { projectId: project._id } })}
-                                    className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:border-primary/50 transition-all group p-5 cursor-pointer relative"
-                                >
-                                    <button
-                                        onClick={(e) => handleDeleteProject(e, project._id)}
-                                        className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-                                        title="Delete Project"
-                                    >
-                                        <span className="material-symbols-outlined text-sm">delete</span>
-                                    </button>
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className={`p-2 rounded-lg ${project.status === 'finalized' ? 'text-primary bg-primary/10' : 'text-slate-500 bg-slate-100'}`}>
-                                            <span className="material-symbols-outlined">hub</span>
-                                        </div>
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase tracking-wide ${project.status === 'finalized' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-slate-500 bg-slate-500/10 border-slate-500/20'}`}>
-                                            {project.status || 'Draft'}
-                                        </span>
-                                    </div>
-                                    <h3 className="text-lg font-bold mb-1 group-hover:text-primary transition-colors">{project.title}</h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-medium line-clamp-2">{project.description}</p>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <div className="flex justify-between items-center mb-1.5 text-xs font-bold uppercase tracking-wider">
-                                                <span className="text-slate-500">Resources</span>
-                                                <span className="text-primary">{project.required_skills?.length || 0} Specializations</span>
-                                            </div>
-                                            <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                <div className="h-full bg-primary glow-bar transition-all" style={{ width: '45%' }}></div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-                                            <div className="flex -space-x-2">
-                                                <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">AI</div>
-                                                <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-600 flex items-center justify-center text-[10px] font-bold text-white">CH</div>
-                                            </div>
-                                            <button className="text-xs font-bold px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase tracking-widest">Details</button>
-                                        </div>
-                                    </div>
-                                </div>
+                                    project={project}
+                                    navigate={navigate}
+                                    onDelete={handleDeleteProject}
+                                />
+                            ))
+                        )}
+                    </div>
+
+                    {/* Project Grid - Portfolio */}
+                    <div className="mb-8 flex items-end justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="material-symbols-outlined text-primary text-3xl">folder_managed</span>
+                            <div>
+                                <h1 className="text-3xl font-bold tracking-tight mb-2">Neural Portfolio</h1>
+                                <p className="text-slate-500 dark:text-slate-400">Repository of {projects.filter(p => p.status === 'finalized').length} architectural achievements.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                        {loading ? null : projects.filter(p => p.status === 'finalized').length === 0 ? (
+                            <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl opacity-60">
+                                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Neural Portfolio Offline (0 Finalized)</p>
+                            </div>
+                        ) : (
+                            projects.filter(p => p.status === 'finalized').map(project => (
+                                <ProjectCard
+                                    key={project._id}
+                                    project={project}
+                                    navigate={navigate}
+                                    onDelete={handleDeleteProject}
+                                    isPortfolio={true}
+                                />
                             ))
                         )}
                     </div>
@@ -294,5 +280,50 @@ const AdminDashboardPage = () => {
         </div>
     );
 };
+
+const ProjectCard = ({ project, navigate, onDelete, isPortfolio = false }) => (
+    <div
+        onClick={() => navigate('/admin/project-details', { state: { projectId: project._id } })}
+        className={`bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:border-primary/50 transition-all group p-5 cursor-pointer relative ${isPortfolio ? 'neural-portfolio-card' : ''}`}
+    >
+        <button
+            onClick={(e) => onDelete(e, project._id)}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+            title="Delete Project"
+        >
+            <span className="material-symbols-outlined text-sm">delete</span>
+        </button>
+        <div className="flex items-start justify-between mb-4">
+            <div className={`p-2 rounded-lg ${project.status === 'finalized' ? 'text-primary bg-primary/10' : 'text-slate-500 bg-slate-100'}`}>
+                <span className="material-symbols-outlined">{isPortfolio ? 'verified' : 'hub'}</span>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase tracking-wide ${project.status === 'finalized' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-slate-500 bg-slate-500/10 border-slate-500/20'}`}>
+                {project.status || 'Draft'}
+            </span>
+        </div>
+        <h3 className="text-lg font-bold mb-1 group-hover:text-primary transition-colors">{project.title}</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-medium line-clamp-2">{project.description}</p>
+        <div className="space-y-4">
+            <div>
+                <div className="flex justify-between items-center mb-1.5 text-xs font-bold uppercase tracking-wider">
+                    <span className="text-slate-500">Resources</span>
+                    <span className="text-primary">{project.required_skills?.length || 0} Specialties</span>
+                </div>
+                <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${isPortfolio ? 'bg-emerald-500' : 'bg-primary'} glow-bar transition-all`} style={{ width: isPortfolio ? '100%' : '45%' }}></div>
+                </div>
+            </div>
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex -space-x-2">
+                    <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">AI</div>
+                    <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-600 flex items-center justify-center text-[10px] font-bold text-white">CH</div>
+                </div>
+                <button className="text-xs font-bold px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase tracking-widest">
+                    {isPortfolio ? 'View Archive' : 'Open Neural Hub'}
+                </button>
+            </div>
+        </div>
+    </div>
+);
 
 export default AdminDashboardPage;

@@ -91,3 +91,68 @@
 .animate-pulse-ring {
     animation: pulse-ring 2s infinite ease-in-out;
 }
+
+.neural-connection-line {
+    stroke-dasharray: 10;
+    animation: flow 20s linear infinite;
+}
+
+@keyframes flow {
+    from {
+        stroke-dashoffset: 200;
+    }
+
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes reveal-node {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.4) rotate(-10deg);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    }
+}
+
+.reveal-node {
+    animation: reveal-node 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+}
+
+@keyframes reveal-core {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.5) blur(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) blur(0px);
+    }
+}
+
+.reveal-core {
+    animation: reveal-core 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+}
+
+@keyframes reveal-filament {
+    from {
+        stroke-dashoffset: 300;
+        opacity: 0;
+    }
+
+    to {
+        stroke-dashoffset: 0;
+        opacity: 1;
+    }
+}
+
+.reveal-filament {
+    animation: reveal-filament 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

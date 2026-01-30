@@ -1,34 +1,39 @@
 import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import Logo from '../components/common/Logo';
+import { API_BASE_URL } from '../utils/constants';
 import '../styles/ProjectDetails.css';
 
 const ProjectDetailsPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { projectId } = location.state || {};
+    const [projectData, setProjectData] = React.useState(null);
+    const [team, setTeam] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
 
-    const teamMembers = [
-        {
-            name: "Felix Chen",
-            role: "Lead Dev",
-            avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuCEJYLE5uuk7tO5gmk9vgz-zCsRa4T0D1X5Uk8ClsGRzw9TEDdEflBWBbDXIIhe7XDHIQYxrohzr15JbAyx6oB_L-m5PxC-clR3Ca5eWs3-c0irEkkeDVp17B_mKzswG4OoCGaBHnreZrdjlS_DEPlvoSU3nEn_Coip7FSflM1SlJUQU2g-o6vRxr_4dIi6rCOyPXqKAJBn_gnO6tGfVMpWN9h4d3W9m_jqWhkMoAZIqUmtuR3ZRnrwXdWUidSpWoG7iuuccxV_4qc",
-            task: "Core Architecture",
-            progress: 80
-        },
-        {
-            name: "Aria Vane",
-            role: "UI Designer",
-            avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBksy9c5CrMAFMtfaoJdt1IUUGVimCmGXgc04DkRY7N4U7qQ6zjo4Ukkn9IhjubCMMeDKREZiyGlK0K83mDpO1NTnO--1Qwm6klLsPiatUgvtlQYnsAVmozIK4EOC8xkSgRv_GvQkAI9gJNWoaZRncIor3ZBkJb9vFdHrYzly-S7tG1nJ9j8AgbaqTqpIr5ddpYfIBD3ZnXxCXQ-NSxhW2EKpcYxpu4IDIpdvg5hXXoxfVtfypiMdIXLBJ0dbhPw4Go9ov_KkxItlM",
-            task: "Visual Integration",
-            progress: 45
-        },
-        {
-            name: "Julian Rossi",
-            role: "Data Analyst",
-            avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDfR2OArJPbw_lc8f6ZuszNiVgAvutgu-ERJHimyJDZsV1syxz7WDifByysTx1daIjgHqyXAoNeCoCh-KMXn4YpEPoL5YFpKU7b7TWa1cMTQTiDs81jB6717IfzecwdNVYzN3CHdjPsZB_INULmc1kXhZKFofY-k4fivqjxUp0beRG9OjBqSPK90R_eBgWkjFzdByHG-jPWo_loyR00iDVsPlXi-PfUsEVwcyhcX1lAO7Gd9FUe420NF4rduzxFdlyzW_Ori6_YWrM",
-            task: "Pipeline Validation",
-            progress: 92
-        }
-    ];
+    React.useEffect(() => {
+        const fetchProjectDetails = async () => {
+            if (!projectId) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setProjectData(data.project);
+                    setTeam(data.team);
+                }
+            } catch (error) {
+                console.error('Error fetching project details:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProjectDetails();
+    }, [projectId]);
 
     return (
         <div className="project-details-container bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen font-display">
@@ -41,7 +46,7 @@ const ProjectDetailsPage = () => {
                         <nav className="hidden md:flex items-center gap-6">
                             <Link to="/admin/dashboard" className="text-sm font-medium hover:text-primary transition-colors text-slate-500 dark:text-[#948dce]">Dashboard</Link>
                             <Link to="/admin/dashboard" className="text-primary text-sm font-semibold border-b-2 border-primary pb-1">Projects</Link>
-                            <Link to="/admin/employees" className="text-sm font-medium hover:text-primary transition-colors text-slate-500 dark:text-[#948dce]">Resources</Link>
+                            <Link to="/admin/employees" className="text-sm font-medium hover:text-primary transition-colors text-slate-500 dark:text-[#948dce]">Employees</Link>
                             <Link to="/admin/settings" className="text-sm font-medium hover:text-primary transition-colors text-slate-500 dark:text-[#948dce]">Settings</Link>
                         </nav>
                     </div>
@@ -74,13 +79,15 @@ const ProjectDetailsPage = () => {
                     </div>
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                         <div>
-                            <h1 className="text-4xl font-black tracking-tight mb-2">Nexo Alpha Pipeline</h1>
+                            <h1 className="text-4xl font-black tracking-tight mb-2">
+                                {loading ? 'Initializing Interface...' : projectData?.title || 'Project Neural Core'}
+                            </h1>
                             <div className="flex items-center gap-3">
-                                <span className="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-bold uppercase tracking-wider">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                    Deployment Status: Active
+                                <span className={`flex items-center gap-1.5 px-3 py-1 ${projectData?.status === 'finalized' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'} rounded-full text-xs font-bold uppercase tracking-wider`}>
+                                    <span className={`w-2 h-2 ${projectData?.status === 'finalized' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'} rounded-full`}></span>
+                                    Status: {projectData?.status || 'Active'}
                                 </span>
-                                <span className="text-slate-500 dark:text-[#948dce] text-sm">ID: NEX-7729-ALPHA</span>
+                                <span className="text-slate-500 dark:text-[#948dce] text-sm font-mono uppercase">ID: {projectData?._id?.substring(0, 12)}...</span>
                             </div>
                         </div>
                         <div className="flex gap-3">
@@ -162,29 +169,47 @@ const ProjectDetailsPage = () => {
                                 </div>
                             </div>
                             <div className="p-8 space-y-6">
-                                {teamMembers.map((member, idx) => (
-                                    <div key={idx} className="employee-row group flex flex-col sm:flex-row sm:items-center gap-4 relative">
-                                        <div className="flex items-center gap-4 min-w-[200px]">
-                                            <img alt={`${member.name} avatar`} className="w-10 h-10 rounded-full object-cover grayscale" src={member.avatar} />
-                                            <div>
-                                                <p className="font-bold">{member.name}</p>
-                                                <p className="text-xs text-slate-400 dark:text-[#948dce]">{member.role}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between mb-1.5">
-                                                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-[#948dce]">{member.task}</span>
-                                                <span className="text-xs font-bold text-secondary-cyan">{member.progress}%</span>
-                                            </div>
-                                            <div className="w-full h-2 bg-slate-100 dark:bg-border-dark rounded-full overflow-hidden">
-                                                <div className="h-full bg-secondary-cyan rounded-full" style={{ width: `${member.progress}%` }}></div>
-                                            </div>
-                                        </div>
-                                        <button className="remove-trigger opacity-0 absolute -right-2 top-0 sm:relative sm:top-auto sm:right-auto p-1.5 text-slate-400 hover:text-crimson-alert transition-all">
-                                            <span className="material-symbols-outlined text-lg">close</span>
-                                        </button>
+                                {loading ? (
+                                    <div className="py-10 text-center text-slate-500 animate-pulse font-mono text-xs uppercase tracking-widest">
+                                        Fetching Team Profiles...
                                     </div>
-                                ))}
+                                ) : team.length === 0 ? (
+                                    <div className="py-10 text-center text-slate-500 italic">
+                                        No team members assigned to this neural core.
+                                    </div>
+                                ) : (
+                                    team.map((member, idx) => (
+                                        <div key={idx} className="employee-row group flex flex-col sm:flex-row sm:items-center gap-4 relative">
+                                            <div className="flex items-center gap-4 min-w-[200px]">
+                                                <img
+                                                    alt={`${member.profile.full_name} avatar`}
+                                                    className="w-10 h-10 rounded-full object-cover grayscale"
+                                                    src={member.profile.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuAaOZf7n7G1HMD5clSidK04vMqgB31u5IonIUlUo9FKjMHYO80Ztal1uJ7g1_jZtAqe7rEhytZ_pmfsx64eS3Mvr--vNDLVdgVm1YSo84VEfvfzFxfQL7rkf7R949hyiDDq7B9AJQgVZDonf9LROj1BxiIThwsmGRIO5PUVdd5pNyuR6RAO81YDtYHRErMpO8tTpqeM4jMuDFe_d-4WWR2cnWeLQGNNijksvaUk3zi1fejNMmGmCzYkzaruZju7Tbj3Xd-LJ41HijI"}
+                                                />
+                                                <div>
+                                                    <p className="font-bold">{member.profile.full_name}</p>
+                                                    <p className="text-xs text-slate-400 dark:text-[#948dce]">
+                                                        {member.skills[0]?.skill_name || 'Neural Specialist'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between mb-1.5">
+                                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-[#948dce]">
+                                                        Operational Capability
+                                                    </span>
+                                                    <span className="text-xs font-bold text-secondary-cyan">100%</span>
+                                                </div>
+                                                <div className="w-full h-2 bg-slate-100 dark:bg-border-dark rounded-full overflow-hidden">
+                                                    <div className="h-full bg-secondary-cyan rounded-full" style={{ width: `100%` }}></div>
+                                                </div>
+                                            </div>
+                                            <button className="remove-trigger opacity-0 absolute -right-2 top-0 sm:relative sm:top-auto sm:right-auto p-1.5 text-slate-400 hover:text-crimson-alert transition-all">
+                                                <span className="material-symbols-outlined text-lg">close</span>
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
                                 <button className="w-full py-6 border-2 border-dashed border-slate-200 dark:border-border-dark rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-all group">
                                     <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-border-dark flex items-center justify-center text-slate-400 group-hover:bg-primary/20 group-hover:text-primary transition-colors">
                                         <span className="material-symbols-outlined">person_add</span>

@@ -1,32 +1,182 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 import Logo from '../components/common/Logo';
+import { API_BASE_URL } from '../utils/constants';
 import '../styles/EmployeeCalibration.css';
 
 const EmployeeCalibrationPage = () => {
     const navigate = useNavigate();
+    const { user, fetchProfile } = useUser();
     const fileInputRef = useRef(null);
     const [selectedAvatar, setSelectedAvatar] = useState('neural');
     const [customAvatarUrl, setCustomAvatarUrl] = useState(null);
+    const [identifier, setIdentifier] = useState('');
+    const [specialization, setSpecialization] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Dynamic Tech Stacks State
+    const [techStacks, setTechStacks] = useState([
+        { id: 1, skills: ['React.js', 'Tailwind CSS'], experience: 'Mid-Level (3-5 Years)' }
+    ]);
+    const [newSkillInputs, setNewSkillInputs] = useState({}); // Map stackId -> input value
+
+    const convertToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const fileReader = new FileReader();
+            fileReader.readAsDataURL(file);
+            fileReader.onload = () => resolve(fileReader.result);
+            fileReader.onerror = (error) => reject(error);
+        });
+    };
 
     const handleBackToHub = (e) => {
         if (e) e.preventDefault();
         navigate('/role-selection');
     };
 
-    const handleFileUpload = (e) => {
+    const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (file) {
-            const url = URL.createObjectURL(file);
-            setCustomAvatarUrl(url);
+            const base64 = await convertToBase64(file);
+            setCustomAvatarUrl(base64);
             setSelectedAvatar('custom');
         }
     };
 
-    const handleSubmit = (e) => {
+    // Tech Stack Management Functions
+    const addStack = () => {
+        const newStack = {
+            id: Date.now(),
+            skills: [],
+            experience: 'Junior (1-3 Years)'
+        };
+        setTechStacks([...techStacks, newStack]);
+    };
+
+    const removeStack = (id) => {
+        setTechStacks(techStacks.filter(stack => stack.id !== id));
+    };
+
+    const addSkill = (stackId) => {
+        const skillName = newSkillInputs[stackId]?.trim();
+        if (!skillName) return;
+
+        setTechStacks(techStacks.map(stack => {
+            if (stack.id === stackId && !stack.skills.includes(skillName)) {
+                return { ...stack, skills: [...stack.skills, skillName] };
+            }
+            return stack;
+        }));
+        setNewSkillInputs({ ...newSkillInputs, [stackId]: '' });
+    };
+
+    const removeSkill = (stackId, skillToRemove) => {
+        setTechStacks(techStacks.map(stack => {
+            if (stack.id === stackId) {
+                return { ...stack, skills: stack.skills.filter(s => s !== skillToRemove) };
+            }
+            return stack;
+        }));
+    };
+
+    const updateExperience = (stackId, value) => {
+        setTechStacks(techStacks.map(stack => {
+            if (stack.id === stackId) return { ...stack, experience: value };
+            return stack;
+        }));
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Here we would typically handle form submission
-        navigate('/employee');
+        try {
+            // Check password validation (at least 8 chars)
+            if (password && password.length < 8) {
+                alert('Access Key must be at least 8 characters.');
+                return;
+            }
+
+            if (!email || !password) {
+                alert('Please provide an email and password to create your account.');
+                return;
+            }
+
+            // 1. Create User Account (Signup)
+            const signupResponse = await fetch(`${API_BASE_URL}/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email,
+                    password: password,
+                    role: 'employee'
+                })
+            });
+
+            if (!signupResponse.ok) {
+                const error = await signupResponse.json();
+                throw new Error(error.detail || 'Account creation failed');
+            }
+
+            const data = await signupResponse.json();
+            localStorage.setItem('token', data.access_token);
+            localStorage.setItem('role', 'employee'); // Optimistic role set
+
+            // 2. Save Profile Data
+            const apiSkills = [];
+            techStacks.forEach(stack => {
+                let level = 'mid';
+                let years = 3;
+
+                if (stack.experience.includes('Entry') || stack.experience.includes('Junior')) {
+                    level = 'junior';
+                    years = 1;
+                } else if (stack.experience.includes('Senior') || stack.experience.includes('Expert')) {
+                    level = 'senior';
+                    years = 5;
+                }
+
+                stack.skills.forEach(skill => {
+                    apiSkills.push({
+                        skill_name: skill,
+                        level: level,
+                        years_of_experience: years
+                    });
+                });
+            });
+
+            const profileResponse = await fetch(`${API_BASE_URL}/employees/profile`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${data.access_token}`
+                },
+                body: JSON.stringify({
+                    full_name: identifier,
+                    specialization: specialization,
+                    avatar_url: customAvatarUrl || null,
+                    skills: apiSkills
+                })
+            });
+
+            if (profileResponse.ok) {
+                await fetchProfile(); // Update context
+                navigate('/employee');
+            } else {
+                const error = await profileResponse.json();
+                alert(error.detail || 'Profile saving failed, but account created. Please login.');
+                navigate('/login');
+            }
+        } catch (err) {
+            console.error('Calibration error:', err);
+            // Ensure error is a string
+            let errorMessage = 'Identity synchronization failed.';
+            if (typeof err === 'string') errorMessage = err;
+            else if (err.message) errorMessage = err.message;
+
+            alert(errorMessage);
+        }
     };
 
     return (
@@ -46,11 +196,15 @@ const EmployeeCalibrationPage = () => {
                         <div className="h-6 w-[1px] bg-white/10"></div>
                         <div className="flex items-center gap-4">
                             <div className="text-right hidden sm:block">
-                                <p className="text-[20px] uppercase tracking-tighter opacity-40">System Access</p>
-                                <p className="text-[20px] font-bold text-secondary tracking-widest uppercase">Employee Tier 1</p>
+                                <p className="text-[10px] uppercase tracking-tighter opacity-40">System Access</p>
+                                <p className="text-[10px] font-bold text-secondary tracking-widest uppercase">Employee Tier 1</p>
                             </div>
-                            <div className="size-9 rounded-full border border-white/10 p-0.5 overflow-hidden">
-                                <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-full" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDKXbzBhZLcgbUhDXIcbqOs3-Y1OUZNlu1ADRCUGyTsz4FhNAGlqWO1KIVETPidIrSQfxxZHkFq1QfF3esphA5vFG3Yknfq-lJlkN36Y_hDU0iNs1JEH9o3pVfMMiggRzYA6EbY2ycb-07_1tuhSQp-4LTCIwHQBy1IAbcVAxxUV7HDsxFv7GIYv5HNlMjQtkrUI6MZokKvfq2p-Un5lhEc_MgWyLFWBXlWtC3xIQkdSoE6k8CkV7PENA5J5uWPxQcx2nuZjdK-v98")' }}></div>
+                            <div className="size-9 rounded-full border border-white/10 p-0.5 overflow-hidden flex items-center justify-center bg-white/5">
+                                {user?.profile?.avatar_url ? (
+                                    <img src={user.profile.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                    <span className="material-symbols-outlined text-xs text-white/30">person</span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -153,109 +307,150 @@ const EmployeeCalibrationPage = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
                                 <div className="space-y-2">
                                     <label className="text-[20px] uppercase font-bold tracking-[0.2em] text-primary/80">Identifier</label>
-                                    <input className="w-full text-white py-3.5 px-5 rounded-[12px] outline-none transition-all placeholder:text-white/10 text-sm border" placeholder="e.g. Node_Delta_4" type="text" defaultValue="NX_772_EMPLOYEE" />
+                                    <input
+                                        className="w-full text-white py-3.5 px-5 rounded-[12px] outline-none transition-all placeholder:text-white/10 text-sm border"
+                                        placeholder="e.g. Node_Delta_4"
+                                        type="text"
+                                        value={identifier}
+                                        onChange={(e) => setIdentifier(e.target.value)}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[20px] uppercase font-bold tracking-[0.2em] text-primary/80">Primary Specialization</label>
-                                    <input className="w-full text-white py-3.5 px-5 rounded-[12px] outline-none transition-all placeholder:text-white/10 text-sm border" placeholder="e.g. LLM Engineering" type="text" defaultValue="Frontend Systems Architecture" />
+                                    <input
+                                        className="w-full text-white py-3.5 px-5 rounded-[12px] outline-none transition-all placeholder:text-white/10 text-sm border"
+                                        placeholder="e.g. LLM Engineering"
+                                        type="text"
+                                        value={specialization}
+                                        onChange={(e) => setSpecialization(e.target.value)}
+                                    />
                                 </div>
                             </div>
-
                             <div className="mb-12 space-y-6">
                                 <h3 className="text-[22px] uppercase font-bold tracking-[0.2em] text-white border-b border-white/5 pb-4">Account Access</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-2">
                                         <label className="text-[20px] uppercase font-bold tracking-[0.2em] text-primary/80">Enterprise Email</label>
-                                        <input className="w-full text-white py-3.5 px-5 rounded-[12px] outline-none transition-all placeholder:text-white/20 text-sm border" placeholder="employee@nexo-agent.ai" type="email" />
+                                        <input
+                                            className="w-full text-white py-3.5 px-5 rounded-[12px] outline-none transition-all placeholder:text-white/20 text-sm border focus:border-primary"
+                                            placeholder="employee@nexo-agent.ai"
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                        />
                                     </div>
                                     <div className="space-y-2 relative">
                                         <label className="text-[20px] uppercase font-bold tracking-[0.2em] text-primary/80">Set Access Key</label>
                                         <div className="relative">
-                                            <input className="w-full text-white py-3.5 px-5 pr-12 rounded-[12px] outline-none transition-all placeholder:text-white/20 text-sm border" placeholder="••••••••••••" type="password" />
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1.5">
-                                                <span className="material-symbols-outlined text-[16px] text-white/20 validation-glow" title="Complexity met">security</span>
-                                                <span className="material-symbols-outlined text-[16px] text-white/20 validation-glow" title="Length verified">verified_user</span>
+                                            <input
+                                                className="w-full text-white py-3.5 px-5 pr-20 rounded-[12px] outline-none transition-all placeholder:text-white/20 text-sm border focus:border-primary"
+                                                placeholder="8+ Characters"
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                            />
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="text-white/40 hover:text-white transition-colors"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">
+                                                        {showPassword ? 'visibility_off' : 'visibility'}
+                                                    </span>
+                                                </button>
+                                                <span className={`material-symbols-outlined text-[16px] ${password.length >= 8 ? 'text-green-400' : 'text-white/20'}`} title="Length verified">verified_user</span>
                                             </div>
                                         </div>
-                                        <p className="text-[15px] text-white/30 uppercase tracking-widest mt-1">Min. 12 characters with biometric hash</p>
+                                        <p className="text-[15px] text-white/30 uppercase tracking-widest mt-1">Min. 8 characters</p>
                                     </div>
                                 </div>
                             </div>
-
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between border-b border-white/5 pb-4">
                                     <h3 className="text-[22px] uppercase font-bold tracking-[0.2em] text-white">Skills & Experience Matrix</h3>
-                                    <button className="text-[20px] uppercase font-bold tracking-widest text-secondary hover:text-white flex items-center gap-2 transition-all">
+                                    <button
+                                        onClick={addStack}
+                                        type="button"
+                                        className="text-[20px] uppercase font-bold tracking-widest text-secondary hover:text-white flex items-center gap-2 transition-all"
+                                    >
                                         <span className="material-symbols-outlined text-sm">add</span> Add New Stack
                                     </button>
                                 </div>
 
-                                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {/* Tech Stack 1 */}
-                                    <div className="p-6 rounded-[20px] border border-white/5 bg-[#1B1730]/30 space-y-4 hover:border-primary/20 transition-colors">
-                                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                                            <div className="lg:col-span-3 space-y-3">
-                                                <label className="text-[20px] uppercase tracking-[0.2em] text-white/30 font-bold">Technical Stack</label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-full text-[11px] font-bold">
-                                                        React.js
-                                                        <button className="material-symbols-outlined text-[20px] hover:text-white">close</button>
-                                                    </div>
-                                                    <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-full text-[11px] font-bold">
-                                                        Tailwind CSS
-                                                        <button className="material-symbols-outlined text-[20px] hover:text-white">close</button>
-                                                    </div>
-                                                    <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-full text-[11px] font-bold">
-                                                        TypeScript
-                                                        <button className="material-symbols-outlined text-[20px] hover:text-white">close</button>
-                                                    </div>
-                                                    <button className="px-3 py-1.5 rounded-full border border-dashed border-white/20 text-[10px] text-white/40 hover:text-white hover:border-white/40 transition-all">+ Add</button>
-                                                </div>
-                                            </div>
-                                            <div className="lg:col-span-2 space-y-3">
-                                                <label className="text-[20px] uppercase tracking-[0.2em] text-white/30 font-bold">Experience level</label>
-                                                <div className="relative">
-                                                    <select className="w-full text-white py-2.5 px-4 rounded-[20px] text-xs outline-none appearance-none cursor-pointer border">
-                                                        <option>Entry (0-1 Year)</option>
-                                                        <option>Junior (1-3 Years)</option>
-                                                        <option value="Mid-Level (3-5 Years)" selected>Mid-Level (3-5 Years)</option>
-                                                        <option>Senior (5-8 Years)</option>
-                                                        <option>Expert (8+ Years)</option>
-                                                    </select>
-                                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary/40 text-lg pointer-events-none">unfold_more</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {techStacks.map((stack) => (
+                                        <div key={stack.id} className="p-6 rounded-[20px] border border-white/5 bg-[#1B1730]/30 space-y-4 hover:border-primary/20 transition-colors relative group/stack">
+                                            <button
+                                                type="button"
+                                                onClick={() => removeStack(stack.id)}
+                                                className="absolute top-4 right-4 text-white/20 hover:text-red-400 opacity-0 group-hover/stack:opacity-100 transition-all"
+                                                title="Remove Stack"
+                                            >
+                                                <span className="material-symbols-outlined">delete</span>
+                                            </button>
 
-                                    {/* Tech Stack 2 */}
-                                    <div className="p-6 rounded-[20px] border border-white/5 bg-[#1B1730]/30 space-y-4 hover:border-primary/20 transition-colors">
-                                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                                            <div className="lg:col-span-3 space-y-3">
-                                                <label className="text-[20px] uppercase tracking-[0.2em] text-white/30 font-bold">Technical Stack</label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-full text-[11px] font-bold">
-                                                        Python
-                                                        <button className="material-symbols-outlined text-[14px] hover:text-white">close</button>
+                                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                                                <div className="lg:col-span-3 space-y-3">
+                                                    <label className="text-[20px] uppercase tracking-[0.2em] text-white/30 font-bold">Technical Stack</label>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {stack.skills.map((skill) => (
+                                                            <div key={skill} className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-full text-[11px] font-bold">
+                                                                {skill}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeSkill(stack.id, skill)}
+                                                                    className="material-symbols-outlined text-[20px] hover:text-white"
+                                                                >
+                                                                    close
+                                                                </button>
+                                                            </div>
+                                                        ))}
+
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                type="text"
+                                                                className="bg-transparent border-b border-white/20 text-white text-[12px] px-2 py-1 w-24 focus:border-primary outline-none"
+                                                                placeholder="Add skill..."
+                                                                value={newSkillInputs[stack.id] || ''}
+                                                                onChange={(e) => setNewSkillInputs({ ...newSkillInputs, [stack.id]: e.target.value })}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        addSkill(stack.id);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => addSkill(stack.id)}
+                                                                className="text-primary hover:text-white transition-colors"
+                                                            >
+                                                                <span className="material-symbols-outlined text-lg">add_circle</span>
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <button className="px-3 py-1.5 rounded-full border border-dashed border-white/20 text-[10px] text-white/40 hover:text-white hover:border-white/40 transition-all">+ Add</button>
                                                 </div>
-                                            </div>
-                                            <div className="lg:col-span-2 space-y-3">
-                                                <label className="text-[20px] uppercase tracking-[0.2em] text-white/30 font-bold">Experience level</label>
-                                                <div className="relative">
-                                                    <select className="w-full text-white py-2.5 px-4 rounded-[20px] text-xs outline-none appearance-none cursor-pointer border">
-                                                        <option>Entry (0-1 Year)</option>
-                                                        <option value="Junior (1-3 Years)" selected>Junior (1-3 Years)</option>
-                                                        <option>Mid-Level (3-5 Years)</option>
-                                                        <option>Senior (5-8 Years)</option>
-                                                        <option>Expert (8+ Years)</option>
-                                                    </select>
-                                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary/40 text-lg pointer-events-none">unfold_more</span>
+                                                <div className="lg:col-span-2 space-y-3">
+                                                    <label className="text-[20px] uppercase tracking-[0.2em] text-white/30 font-bold">Experience level</label>
+                                                    <div className="relative">
+                                                        <select
+                                                            value={stack.experience}
+                                                            onChange={(e) => updateExperience(stack.id, e.target.value)}
+                                                            className="w-full text-white py-2.5 px-4 rounded-[20px] text-xs outline-none appearance-none cursor-pointer border bg-[#0F0C1D]"
+                                                        >
+                                                            <option>Entry (0-1 Year)</option>
+                                                            <option>Junior (1-3 Years)</option>
+                                                            <option>Mid-Level (3-5 Years)</option>
+                                                            <option>Senior (5-8 Years)</option>
+                                                            <option>Expert (8+ Years)</option>
+                                                        </select>
+                                                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary/40 text-lg pointer-events-none">unfold_more</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    ))}
                                 </div>
                             </div>
 

@@ -1,11 +1,13 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 import Logo from '../components/common/Logo';
 import '../styles/AdminHub.css';
 import '../styles/AdminDashboard.css'; // Reuse technical-grid
 
 const AdminHubPage = () => {
     const navigate = useNavigate();
+    const { logout: contextLogout } = useUser();
 
     return (
         <div className="admin-hub-container">
@@ -51,7 +53,10 @@ const AdminHubPage = () => {
                         <span className="material-symbols-outlined cursor-pointer hover:text-white">notifications</span>
                         <span className="material-symbols-outlined cursor-pointer hover:text-white">help</span>
                         <button
-                            onClick={() => navigate('/login')}
+                            onClick={() => {
+                                contextLogout();
+                                navigate('/login');
+                            }}
                             className="p-1.5 rounded-lg border border-white/5 text-white/30 hover:text-red-500 hover:bg-red-500/5 transition-all"
                             title="Logout"
                         >

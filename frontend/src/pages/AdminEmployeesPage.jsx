@@ -1,15 +1,32 @@
 
 import React from 'react';
 import AdminLayout from '../layouts/AdminLayout';
+import { API_BASE_URL } from '../utils/constants';
 
 const AdminEmployeesPage = () => {
-    const employees = [
-        { id: 1, name: "Alice Dev", role: "Frontend", status: "Busy", email: "alice@nexo.ai", projects: 2 },
-        { id: 2, name: "Bob Backend", role: "Backend", status: "Available", email: "bob@nexo.ai", projects: 0 },
-        { id: 3, name: "Charlie AI", role: "AI Engineer", status: "Busy", email: "charlie@nexo.ai", projects: 1 },
-        { id: 4, name: "Dave Data", role: "Data Scientist", status: "Available", email: "dave@nexo.ai", projects: 0 },
-        { id: 5, name: "Eve UI", role: "Designer", status: "Assigned", email: "eve@nexo.ai", projects: 1 },
-    ];
+    const [employees, setEmployees] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const fetchEmployees = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/employees/`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setEmployees(data);
+                }
+            } catch (error) {
+                console.error('Error fetching employees:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchEmployees();
+    }, []);
 
     return (
         <AdminLayout title="Team Management">
@@ -27,39 +44,63 @@ const AdminEmployeesPage = () => {
                         <thead className="bg-[var(--bg-surface-hover)] border-b border-[var(--border-subtle)] text-[var(--text-secondary)]">
                             <tr>
                                 <th className="px-6 py-3 font-medium">Name</th>
-                                <th className="px-6 py-3 font-medium">Role</th>
+                                <th className="px-6 py-3 font-medium">Designation</th>
                                 <th className="px-6 py-3 font-medium">Status</th>
                                 <th className="px-6 py-3 font-medium">Active Projects</th>
                                 <th className="px-6 py-3 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--border-subtle)]">
-                            {employees.map(emp => (
-                                <tr key={emp.id} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-200 to-gray-300 flex items-center justify-center text-[var(--text-secondary)]">
-                                                <span className="material-icons-outlined text-sm">person</span>
-                                            </div>
-                                            <div>
-                                                <div className="font-medium text-[var(--text-primary)]">{emp.name}</div>
-                                                <div className="text-xs text-[var(--text-secondary)]">{emp.email}</div>
-                                            </div>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-20 text-center text-slate-500">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <span className="material-symbols-outlined animate-spin text-2xl">refresh</span>
+                                            <p className="font-mono uppercase tracking-widest text-xs">Loading Personnel...</p>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-[var(--text-secondary)]">{emp.role}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`badge ${emp.status === 'Available' ? 'badge-success' : 'badge-warning'
-                                            }`}>
-                                            {emp.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-[var(--text-secondary)]">{emp.projects}</td>
-                                    <td className="px-6 py-4">
-                                        <button className="text-[var(--text-primary)] hover:text-[var(--primary-base)] text-sm font-medium">Edit</button>
+                                </tr>
+                            ) : employees.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-20 text-center text-slate-500 italic">
+                                        No neural nodes registered.
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                employees.map(emp => (
+                                    <tr key={emp.profile._id} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary overflow-hidden">
+                                                    {emp.profile.avatar_url ? (
+                                                        <img src={emp.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="material-icons-outlined text-sm">person</span>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <div className="font-medium text-[var(--text-primary)]">{emp.profile.full_name}</div>
+                                                    <div className="text-xs text-[var(--text-secondary)]">{emp.profile.user_id}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-[var(--text-primary)]">
+                                                {emp.profile.specialization || "Unassigned"}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="badge badge-success">
+                                                Operational
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-[var(--text-secondary)]">0</td>
+                                        <td className="px-6 py-4">
+                                            <button className="text-[var(--text-primary)] hover:text-[var(--primary-base)] text-sm font-medium">Profile</button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

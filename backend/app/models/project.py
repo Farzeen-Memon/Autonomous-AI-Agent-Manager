@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from beanie import Document, PydanticObjectId
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, ConfigDict
 from enum import Enum
 from app.models.employee import SkillLevel
 
@@ -10,6 +10,8 @@ class ProjectStatus(str, Enum):
     FINALIZED = "finalized"
 
 class RequiredSkill(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    
     skill_name: str
     level: SkillLevel
 
@@ -19,6 +21,7 @@ class Project(Document):
     required_skills: List[RequiredSkill]
     experience_required: float # In years
     status: ProjectStatus = ProjectStatus.DRAFT
+    assigned_team: List[PydanticObjectId] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -26,14 +29,20 @@ class Project(Document):
         name = "projects"
 
 class ProjectCreate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    
     title: str
     description: str
     required_skills: List[RequiredSkill]
     experience_required: float
+    assigned_team: Optional[List[PydanticObjectId]] = []
 
 class ProjectUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    
     title: Optional[str] = None
     description: Optional[str] = None
     required_skills: Optional[List[RequiredSkill]] = None
     experience_required: Optional[float] = None
     status: Optional[ProjectStatus] = None
+    assigned_team: Optional[List[PydanticObjectId]] = None
