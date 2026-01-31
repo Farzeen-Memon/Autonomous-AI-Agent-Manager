@@ -9,19 +9,28 @@ from dotenv import load_dotenv
 
 load_dotenv('backend/.env')
 
-async def inspect():
+async def check_cloud():
     client = AsyncIOMotorClient(os.getenv('MONGODB_URL'))
     await init_beanie(database=client['nexo_db'], document_models=[EmployeeProfile, Skill])
     
     profiles = await EmployeeProfile.find_all().to_list()
-    print(f"Found {len(profiles)} profiles")
+    print(f"Scanning {len(profiles)} profiles for 'cloud' skill...")
     
+    found_count = 0
     for p in profiles:
         skills = await Skill.find(Skill.employee_id == p.id).to_list()
-        names = [s.skill_name for s in skills]
-        print(f"Employee: {p.full_name}, Spec: {p.specialization}, Skills: {names}")
-    
+        cloud_skills = [s for s in skills if 'cloud' in s.skill_name.lower()]
+        
+        if cloud_skills:
+            found_count += 1
+            s_names = [s.skill_name for s in cloud_skills]
+            print(f"MATCH: {p.full_name} (ID: {p.id}) has skills: {s_names}")
+        else:
+            all_skills = [s.skill_name for s in skills]
+            print(f"NO MATCH: {p.full_name} (ID: {p.id}) skills: {all_skills}")
+
+    print(f"Total with 'cloud': {found_count}")
     client.close()
 
 if __name__ == "__main__":
-    asyncio.run(inspect())
+    asyncio.run(check_cloud())

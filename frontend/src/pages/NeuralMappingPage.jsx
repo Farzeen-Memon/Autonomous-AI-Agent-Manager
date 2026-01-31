@@ -13,21 +13,38 @@ const NeuralMappingPage = () => {
     const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
-        const fetchMatches = async () => {
+        const fetchProjectDetails = async () => {
             if (!projectId) return;
             try {
-                // Fetch project details for the title
+                // Fetch project details
                 const projResponse = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 });
+
                 if (projResponse.ok) {
                     const projData = await projResponse.json();
+
                     if (projData.project?.title) {
                         setProjectTitle(projData.project.title);
                     }
+
+                    // If the project already has a team assigned (from the previous page), use it!
+                    if (projData.team && projData.team.length > 0) {
+                        console.log("Using assigned team from project:", projData.team);
+                        const formattedMatches = projData.team.map(member => ({
+                            profile: member.profile,
+                            score: 10, // Default score for manually assigned members if not persisted
+                            suggested_task: "Assigned Project Member",
+                            matched_skills: member.skills ? member.skills.map(s => s.skill_name) : []
+                        }));
+                        setMatches(formattedMatches);
+                        setLoading(false);
+                        return;
+                    }
                 }
 
-                // Fetch matches
+                // Fallback: If no team assigned, run matcher
+                console.log("No assigned team found, running AI matcher...");
                 const response = await fetch(`${API_BASE_URL}/projects/${projectId}/match`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -36,16 +53,14 @@ const NeuralMappingPage = () => {
                 if (response.ok) {
                     const data = await response.json();
                     setMatches(data);
-                } else {
-                    console.error('Failed to fetch matches:', response.status, response.statusText);
                 }
             } catch (error) {
-                console.error('Error fetching matches:', error);
+                console.error('Error loading project data:', error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchMatches();
+        fetchProjectDetails();
     }, [projectId]);
 
     const handleFinalize = async () => {
@@ -178,22 +193,6 @@ const NeuralMappingPage = () => {
                     })}
                 </svg>
 
-                {/* Central Core */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex flex-col items-center reveal-core">
-                    <div className="w-24 h-24 rounded-full sphere-glow flex items-center justify-center relative -mb-8 z-10 border-4 border-[#1B1730]">
-                        <div className="absolute inset-0 rounded-full border border-white/20 animate-pulse"></div>
-                        <span className="material-symbols-outlined text-4xl text-white drop-shadow-lg">hub</span>
-                    </div>
-                    <div className="project-core-box px-14 pt-12 pb-8 rounded-2xl text-center min-w-[450px]">
-                        <h1 className="text-3xl font-bold tracking-tight text-soft-white mb-2">{projectTitle || "Neural Interface Initializing..."}</h1>
-                        <div className="flex items-center justify-center gap-3">
-                            <div className="h-px w-10 bg-primary/40"></div>
-                            <p className="text-primary font-mono text-[10px] tracking-[0.4em] uppercase">Central Neural Core</p>
-                            <div className="h-px w-10 bg-primary/40"></div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Dynamic Engineer Nodes */}
                 {loading ? (
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-20 z-50">
@@ -207,19 +206,22 @@ const NeuralMappingPage = () => {
                     matches.map((match, idx) => {
                         // Dynamic spatial distribution around the center core
                         const total = matches.length;
-                        const angle = (idx / total) * 2 * Math.PI;
-                        const radiusX = 35 + Math.random() * 5; // Variation for organic feel
-                        const radiusY = 30 + Math.random() * 5;
+                        // Start angle from -PI/2 (top) so the first node is at the top
+                        const angle = (idx / total) * 2 * Math.PI - (Math.PI / 2);
+
+                        // Increase radius to fit the larger cards without overlap
+                        const radiusX = 42;
+                        const radiusY = 35;
 
                         // Calculate positions in percentages
                         const left = 50 + radiusX * Math.cos(angle);
                         const top = 50 + radiusY * Math.sin(angle);
 
-                        const colors = [
-                            { ring: 'profile-ring-cyan', tag: 'soft-cyan' },
-                            { ring: 'profile-ring-purple', tag: 'primary' }
-                        ];
-                        const colorSet = colors[idx % colors.length];
+                        // Colors based on index for variety
+                        const isEven = idx % 2 === 0;
+                        const ringColor = isEven ? 'border-[#5DE6FF]' : 'border-[#8B7CFF]';
+                        const badgeColor = isEven ? 'bg-[#5DE6FF] text-black' : 'bg-[#8B7CFF] text-white';
+                        const glowColor = isEven ? 'shadow-[0_0_15px_rgba(93,230,255,0.5)]' : 'shadow-[0_0_15px_rgba(139,124,255,0.5)]';
 
                         return (
                             <div
@@ -228,39 +230,50 @@ const NeuralMappingPage = () => {
                                 style={{
                                     top: `${top}%`,
                                     left: `${left}%`,
-                                    animationDelay: `${1500 + idx * 200}ms`
+                                    transform: 'translate(-50%, -50%)', // Centering the node on the calculated point
+                                    animationDelay: `${500 + idx * 200}ms`
                                 }}
                             >
-                                <div className="relative flex flex-col items-center group">
-                                    <div className="drag-handle mb-2 opacity-40 group-hover:opacity-100 transition-opacity">
-                                        <span className="material-symbols-outlined text-soft-cyan text-xl">drag_indicator</span>
+                                <div className="flex flex-col items-center group">
+                                    {/* Drag Handle / Menu Dots */}
+                                    <div className="mb-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                        <div className="grid grid-cols-2 gap-0.5">
+                                            <div className="w-1 h-1 bg-slate-500 rounded-full"></div>
+                                            <div className="w-1 h-1 bg-slate-500 rounded-full"></div>
+                                            <div className="w-1 h-1 bg-slate-500 rounded-full"></div>
+                                            <div className="w-1 h-1 bg-slate-500 rounded-full"></div>
+                                        </div>
                                     </div>
-                                    <div className="relative mb-4">
-                                        <div className={`w-24 h-24 rounded-full ${colorSet.ring} overflow-hidden bg-black`}>
+
+                                    {/* Avatar Section */}
+                                    <div className="relative mb-[-10px] z-20 flex flex-col items-center">
+                                        <div className={`w-20 h-20 rounded-full border-2 ${ringColor} p-1 bg-[#0F0C1D] ${glowColor} transition-shadow duration-500`}>
                                             <img
                                                 alt={match.profile.full_name}
-                                                className="w-full h-full object-cover"
+                                                className="w-full h-full rounded-full object-cover"
                                                 src={match.profile.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuAaOZf7n7G1HMD5clSidK04vMqgB31u5IonIUlUo9FKjMHYO80Ztal1uJ7g1_jZtAqe7rEhytZ_pmfsx64eS3Mvr--vNDLVdgVm1YSo84VEfvfzFxfQL7rkf7R949hyiDDq7B9AJQgVZDonf9LROj1BxiIThwsmGRIO5PUdd5pNyuR6RAO81YDtYHRErMpO8tTpqeM4jMuDFe_d-4WWR2cnWeLQGNNijksvaUk3zi1fejNMmGmCzYkzaru7Tbj3Xd-LJ41HijI"}
                                             />
                                         </div>
-                                        <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 bg-${colorSet.tag} text-carbon-black text-[10px] font-bold px-2 py-0.5 rounded uppercase`}>
-                                            {idx === 0 ? 'Lead' : 'Specialist'}
+                                        <div className={`${badgeColor} text-[9px] font-bold px-3 py-0.5 rounded -mt-2 z-30 uppercase tracking-wider`}>
+                                            {match.profile.specialization ? match.profile.specialization.split(' ')[0] : 'ENGINEER'}
                                         </div>
                                     </div>
-                                    <div className="hud-glass p-5 rounded-xl border-soft-cyan/30 text-center w-52 shadow-2xl">
-                                        <h3 className="text-xl font-bold text-white leading-none mb-1">{match.profile.full_name.split(' ')[0]}</h3>
-                                        <p className="text-[10px] text-soft-cyan font-mono uppercase tracking-wider mb-3">Neural Score: {match.score}</p>
 
-                                        <div className="mb-4 text-left p-2 rounded bg-white/5 border border-white/10">
-                                            <p className="text-[8px] uppercase font-bold text-primary mb-1">Assigned Task</p>
-                                            <p className="text-[11px] font-semibold text-slate-200 line-clamp-2 leading-tight">
-                                                {match.suggested_task || "General Logic Optimization"}
-                                            </p>
+                                    {/* Task Card Section */}
+                                    <div className="bg-[#0F0C1D]/80 border border-slate-700/50 rounded-xl p-5 w-56 text-center backdrop-blur-md shadow-2xl relative z-10 pt-6 mt-1 group-hover:border-primary/50 transition-colors">
+                                        <h3 className="text-lg font-bold text-white mb-1">{match.profile.full_name.split(' ')[0]}</h3>
+
+                                        <div className="text-[9px] text-[#8B7CFF] uppercase tracking-[0.2em] mb-2 font-mono">
+                                            Operational Task
                                         </div>
 
-                                        <div className="pt-2 border-t border-white/10 flex justify-between items-center">
-                                            <span className="text-[9px] text-slate-500 uppercase">Sync Level</span>
-                                            <span className="text-xs font-bold text-primary">{Math.round((match.score / 20) * 100)}%</span>
+                                        <div className="text-sm font-bold text-slate-100 mb-4 line-clamp-2 leading-tight min-h-[2.5rem] flex items-center justify-center">
+                                            {match.suggested_task || "Core Logic Implementation"}
+                                        </div>
+
+                                        <div className="flex justify-between items-center border-t border-white/10 pt-3 text-[10px]">
+                                            <span className="text-slate-500 font-mono">DEADLINE</span>
+                                            <span className="text-red-400 font-mono font-bold">Priority Alpha</span>
                                         </div>
                                     </div>
                                 </div>
@@ -268,6 +281,24 @@ const NeuralMappingPage = () => {
                         );
                     })
                 )}
+
+                {/* Central Core Re-Design */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex flex-col items-center reveal-core">
+                    {/* Floating Orb Icon */}
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#8B7CFF] to-[#5DE6FF] flex items-center justify-center shadow-[0_0_40px_rgba(139,124,255,0.6)] z-20 mb-[-20px] animate-pulse-slow border-4 border-[#0F0C1D]">
+                        <span className="material-symbols-outlined text-4xl text-white">hub</span>
+                    </div>
+
+                    {/* Rectangular Title Box */}
+                    <div className="bg-[#120F26] border border-slate-700/50 px-12 pt-10 pb-6 rounded-2xl text-center min-w-[400px] shadow-2xl relative z-10">
+                        <h1 className="text-2xl font-bold tracking-tight text-white mb-2">{projectTitle || "Initializing..."}</h1>
+                        <div className="flex items-center justify-center gap-3 opacity-60">
+                            <div className="h-px w-8 bg-slate-600"></div>
+                            <p className="text-slate-400 font-mono text-[9px] tracking-[0.3em] uppercase">Central Neural Core</p>
+                            <div className="h-px w-8 bg-slate-600"></div>
+                        </div>
+                    </div>
+                </div>
             </main>
 
             {/* Footer */}
@@ -276,7 +307,7 @@ const NeuralMappingPage = () => {
                     <div className="hud-glass p-4 rounded-xl w-80 pointer-events-auto">
                         <div className="flex items-center gap-2 mb-3">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Neural Link Active</span>
+                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">System Online</span>
                         </div>
                         <div className="space-y-1 font-mono text-[9px] text-slate-500">
                             <p>&gt; Spatial optimization complete</p>

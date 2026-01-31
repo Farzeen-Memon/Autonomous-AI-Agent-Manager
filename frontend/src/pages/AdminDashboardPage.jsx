@@ -161,11 +161,11 @@ const AdminDashboardPage = () => {
 
                 {/* Content Padding */}
                 <div className="p-8">
-                    {/* Project Grid - Active */}
+                    {/* Project Grid - Active (Finalized/Deployed) */}
                     <div className="mb-8 flex items-end justify-between">
                         <div>
                             <h1 className="text-3xl font-bold tracking-tight mb-2">Active Neural Deployments</h1>
-                            <p className="text-slate-500 dark:text-slate-400">Synchronizing resources for {projects.filter(p => !p.status || p.status === 'draft').length} active drafts.</p>
+                            <p className="text-slate-500 dark:text-slate-400">Operational networks for {projects.filter(p => p.status === 'finalized').length} finalized projects.</p>
                         </div>
                     </div>
 
@@ -174,37 +174,9 @@ const AdminDashboardPage = () => {
                             <div className="col-span-full py-10 text-center text-slate-500">
                                 <span className="material-symbols-outlined animate-spin text-4xl mb-4">refresh</span>
                             </div>
-                        ) : projects.filter(p => !p.status || p.status === 'draft').length === 0 ? (
+                        ) : projects.filter(p => p.status === 'finalized').length === 0 ? (
                             <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl opacity-60">
-                                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">No Active Drafts Detected</p>
-                            </div>
-                        ) : (
-                            projects.filter(p => !p.status || p.status === 'draft').map(project => (
-                                <ProjectCard
-                                    key={project._id}
-                                    project={project}
-                                    navigate={navigate}
-                                    onDelete={handleDeleteProject}
-                                />
-                            ))
-                        )}
-                    </div>
-
-                    {/* Project Grid - Portfolio */}
-                    <div className="mb-8 flex items-end justify-between">
-                        <div className="flex items-center gap-3">
-                            <span className="material-symbols-outlined text-primary text-3xl">folder_managed</span>
-                            <div>
-                                <h1 className="text-3xl font-bold tracking-tight mb-2">Neural Portfolio</h1>
-                                <p className="text-slate-500 dark:text-slate-400">Repository of {projects.filter(p => p.status === 'finalized').length} architectural achievements.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                        {loading ? null : projects.filter(p => p.status === 'finalized').length === 0 ? (
-                            <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl opacity-60">
-                                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Neural Portfolio Offline (0 Finalized)</p>
+                                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">No Active Deployments</p>
                             </div>
                         ) : (
                             projects.filter(p => p.status === 'finalized').map(project => (
@@ -213,7 +185,36 @@ const AdminDashboardPage = () => {
                                     project={project}
                                     navigate={navigate}
                                     onDelete={handleDeleteProject}
-                                    isPortfolio={true}
+                                    isPortfolio={true} // Reusing portfolio styling for active/finalized
+                                />
+                            ))
+                        )}
+                    </div>
+
+                    {/* Project Grid - PENDING (Drafts) */}
+                    <div className="mb-8 flex items-end justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="material-symbols-outlined text-primary text-3xl">pending_actions</span>
+                            <div>
+                                <h1 className="text-3xl font-bold tracking-tight mb-2">Project Drafts</h1>
+                                <p className="text-slate-500 dark:text-slate-400">Pending initialization for {projects.filter(p => !p.status || p.status === 'draft').length} projects.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                        {loading ? null : projects.filter(p => !p.status || p.status === 'draft').length === 0 ? (
+                            <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl opacity-60">
+                                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">No Pending Drafts</p>
+                            </div>
+                        ) : (
+                            projects.filter(p => !p.status || p.status === 'draft').map(project => (
+                                <ProjectCard
+                                    key={project._id}
+                                    project={project}
+                                    navigate={navigate}
+                                    onDelete={handleDeleteProject}
+                                    isPortfolio={false}
                                 />
                             ))
                         )}
@@ -319,7 +320,7 @@ const ProjectCard = ({ project, navigate, onDelete, isPortfolio = false }) => (
                     <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-600 flex items-center justify-center text-[10px] font-bold text-white">CH</div>
                 </div>
                 <button className="text-xs font-bold px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase tracking-widest">
-                    {isPortfolio ? 'View Archive' : 'Open Neural Hub'}
+                    {isPortfolio ? 'View Live System' : 'Open Neural Hub'}
                 </button>
             </div>
         </div>

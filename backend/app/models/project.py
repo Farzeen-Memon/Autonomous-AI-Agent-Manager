@@ -20,6 +20,7 @@ class Project(Document):
     description: str
     required_skills: List[RequiredSkill]
     experience_required: float # In years
+    team_size: int = 5
     status: ProjectStatus = ProjectStatus.DRAFT
     assigned_team: List[PydanticObjectId] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -35,6 +36,7 @@ class ProjectCreate(BaseModel):
     description: str
     required_skills: List[RequiredSkill]
     experience_required: float
+    team_size: Optional[int] = 5
     assigned_team: Optional[List[PydanticObjectId]] = []
 
 class ProjectUpdate(BaseModel):
@@ -44,5 +46,6 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     required_skills: Optional[List[RequiredSkill]] = None
     experience_required: Optional[float] = None
+    team_size: Optional[int] = None
     status: Optional[ProjectStatus] = None
     assigned_team: Optional[List[PydanticObjectId]] = None

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useUser } from '../context/UserContext';
 // Triggering re-build for real-time matching support
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/common/Logo';
@@ -7,15 +8,16 @@ import '../styles/ProjectMatching.css';
 
 const ProjectMatchingPage = () => {
     const navigate = useNavigate();
+    const { user } = useUser();
     const [teamSize, setTeamSize] = useState(8);
     const [selectionMode, setSelectionMode] = useState('auto'); // 'auto' or 'manual'
     const [title, setTitle] = useState('');
     const [deadline, setDeadline] = useState('');
     const [priority, setPriority] = useState('Standard');
-    const [skills, setSkills] = useState(['Systems Architecture', 'Full-Stack Engineering', 'Cloud Security']);
+    const [skills, setSkills] = useState([]);
     const [newSkill, setNewSkill] = useState('');
     const [experienceRequired, setExperienceRequired] = useState(2);
-    const [description, setDescription] = useState('Leveraging AI-Assisted Human Orchestration to synchronize high-performance engineering teams with complex project requirements.');
+    const [description, setDescription] = useState('');
 
     const [employees, setEmployees] = useState([]);
     const [isMatching, setIsMatching] = useState(false);
@@ -51,6 +53,7 @@ const ProjectMatchingPage = () => {
             description: description,
             required_skills: skills.map(s => ({ skill_name: s, level: 'mid' })),
             experience_required: parseFloat(experienceRequired),
+            team_size: parseInt(teamSize),
             assigned_team: []
         };
 
@@ -70,12 +73,9 @@ const ProjectMatchingPage = () => {
             if (response.ok) {
                 const matches = await response.json();
                 console.log('✅ Received match results:', matches);
-                console.log('📊 First match structure:', matches[0]);
-                console.log('📊 First match score:', matches[0]?.score, 'match_score:', matches[0]?.match_score);
 
                 // Merge matches into the full employee list
                 setEmployees(prevEmployees => {
-                    console.log('🔄 Merging matches. Prev list count:', prevEmployees.length);
                     const updated = prevEmployees.map(emp => {
                         // Extract ID robustly
                         const getEmpId = (e) => {
@@ -92,7 +92,6 @@ const ProjectMatchingPage = () => {
                         });
 
                         if (match) {
-                            console.log(`🎯 Match found for ${emp.profile?.full_name || 'unknown'}:`, match.score || match.match_score);
                             return {
                                 ...emp,
                                 score: match.score !== undefined ? match.score : match.match_score,
@@ -110,7 +109,6 @@ const ProjectMatchingPage = () => {
                     });
 
                     const sorted = [...updated].sort((a, b) => (b.score || 0) - (a.score || 0));
-                    console.log('📊 Sorted results:', sorted.map(e => `${e.profile?.full_name}: ${e.score}`));
                     return sorted;
                 });
             } else {
@@ -122,7 +120,7 @@ const ProjectMatchingPage = () => {
         } finally {
             setIsMatching(false);
         }
-    }, [title, description, skills, experienceRequired]);
+    }, [title, description, skills, experienceRequired, teamSize]);
 
     // Initial fetch of all employees
     React.useEffect(() => {
@@ -130,14 +128,21 @@ const ProjectMatchingPage = () => {
     }, [fetchEmployees]);
 
     // Real-time matching (triggers whenever skills/title change)
+    // Removed automatic trigger on skills change to allow manual control via button for clearer flow,
+    // or we can keep it but we need to include teamSize in dependency.
+    // Keeping it but throttling is fine, but adding teamSize to dependency might cycle too much while sliding.
+    // Let's rely on the button for explicit "Distribute" action as implied by user.
+    // But existing code had it. Let's keep it but maybe increase timeout?
+    // Actually, user said "select agent must work". Often implies a button click. 
+    // I'll keep the button as the primary driver but update the effect too.
     React.useEffect(() => {
         if (skills.length > 0) {
             const timer = setTimeout(() => {
                 handleAutoDistribute();
-            }, 500); // Faster debounce for better UX
+            }, 800);
             return () => clearTimeout(timer);
         }
-    }, [skills, title, handleAutoDistribute]);
+    }, [skills, title, teamSize, handleAutoDistribute]);
 
 
     const handleAddSkill = (e) => {
@@ -155,12 +160,25 @@ const ProjectMatchingPage = () => {
 
     const handleSubmit = async () => {
         try {
+            // Filter employees that are "selected". 
+            // We take employees with a match score > 0.
+            // AND we limit it to the teamSize to respect the "number of people needed".
+            const selectedEmployeeIds = employees
+                .filter(e => {
+                    const s = parseFloat(e.score || e.match_score || 0);
+                    return s > 0;
+                })
+                .slice(0, parseInt(teamSize)) // Limit to teamSize
+                .map(e => e.profile?.id || e.profile?._id || e.employee_id);
+
             const projectData = {
                 title: title || "Untitled Project",
                 description: description,
                 required_skills: skills.map(s => ({ skill_name: s, level: 'mid' })),
                 experience_required: parseFloat(experienceRequired),
-                status: 'draft'
+                team_size: parseInt(teamSize),
+                status: 'draft',
+                assigned_team: selectedEmployeeIds
             };
 
             const response = await fetch(`${API_BASE_URL}/projects/`, {
@@ -175,6 +193,8 @@ const ProjectMatchingPage = () => {
             if (response.ok) {
                 const data = await response.json();
                 const actualProjectId = data.id || data._id;
+                // Pass the selected employees themselves to avoid refetching/rematching if possible, or just the ID.
+                // We'll pass the ID and let the next page handle it, but we really should use the saved team.
                 navigate('/admin/neural-mapping', { state: { projectId: actualProjectId, title: title || "Untitled Project" } });
             } else {
                 console.error('Failed to create project');
@@ -209,8 +229,12 @@ const ProjectMatchingPage = () => {
                         <button className="p-2 rounded-lg bg-[#1b1736] border border-[#352e6b] text-slate-400 hover:text-white transition-colors">
                             <span className="material-symbols-outlined text-xl">notifications</span>
                         </button>
-                        <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-primary text-xl">account_circle</span>
+                        <div className={`w-8 h-8 rounded-full ${!user?.profile?.avatar_url ? 'bg-primary/20 border border-primary/40 flex items-center justify-center' : 'overflow-hidden border border-primary/40'}`}>
+                            {user?.profile?.avatar_url ? (
+                                <img src={user.profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="material-symbols-outlined text-primary text-xl">account_circle</span>
+                            )}
                         </div>
                         <button
                             onClick={() => navigate('/login')}
@@ -288,9 +312,14 @@ const ProjectMatchingPage = () => {
                                 </div>
                                 <div>
                                     <label className="block text-xl font-medium text-slate-300 mb-3">Expertise Required</label>
-                                    <div className="flex flex-wrap gap-2 p-4 bg-[#1b1736] border border-[#352e6b] rounded-lg min-h-[140px]">
+                                    <div className="relative flex flex-wrap gap-2 p-4 bg-[#1b1736] border border-[#352e6b] rounded-lg min-h-[140px]">
+                                        {skills.length === 0 && !newSkill && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <span className="text-slate-600 text-lg italic opacity-40">Add required skills (e.g. Python, AWS)...</span>
+                                            </div>
+                                        )}
                                         {skills.map((skill, index) => (
-                                            <span key={index} className="bg-primary/20 text-primary px-3 py-1.5 rounded-full text-base font-semibold flex items-center gap-1 border border-primary/30">
+                                            <span key={index} className="bg-primary/20 text-primary px-3 py-1.5 rounded-full text-base font-semibold flex items-center gap-1 border border-primary/30 z-10">
                                                 {skill}
                                                 <span
                                                     className="material-symbols-outlined text-base cursor-pointer hover:text-white"
@@ -301,7 +330,7 @@ const ProjectMatchingPage = () => {
                                             </span>
                                         ))}
                                         <input
-                                            className="bg-transparent border-none focus:ring-0 text-sm py-1.5 px-2 w-32 text-white outline-none"
+                                            className="bg-transparent border-none focus:ring-0 text-sm py-1.5 px-2 w-32 text-white outline-none z-10"
                                             placeholder="+ Add skill"
                                             type="text"
                                             value={newSkill}
@@ -376,7 +405,7 @@ const ProjectMatchingPage = () => {
                                         onClick={handleAutoDistribute}
                                         className={`px-6 py-2 text-base font-bold rounded-md transition-colors ${selectionMode === 'auto' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white'}`}
                                     >
-                                        Auto-Distribute
+                                        Auto Select
                                     </button>
                                 </div>
                             </div>

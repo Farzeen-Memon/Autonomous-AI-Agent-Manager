@@ -89,6 +89,7 @@ Project Requirements:
 - Description: {project.description}
 - Required Skills: {', '.join(required_skills)}
 - Experience Required: {project.experience_required} years
+- Target Team Size: {project.team_size} members
 
 Project Tasks:
 {self._format_tasks(tasks) if tasks else "No specific tasks generated yet. Assign general roles."}
@@ -97,22 +98,21 @@ Available Candidates:
 {self._format_candidates(candidate_summaries)}
 
 Your task is to:
-1. **INCLUSIVE MATCHING (CRITICAL)**: You MUST include EVERY candidate that has at least ONE matching skill in your response list. DO NOT filter out candidates with low scores if they have a matching skill.
-2. **Assign a match score from 0-20**:
-   - 18-20: Perfect match (all or most required skills at high proficiency).
-   - 14-17: Strong match (several key skills match).
-   - 10-13: Moderate match (At least ONE required skill matches).
-   - 0-9: Weak match (No direct skill matches, or only tangentially related).
-3. **Identify matched skills**: List the specific skills from the candidate's profile that directly match the project's "Required Skills".
-4. **Assign suitable tasks**: Assign the most suitable project task to each candidate based on their specific strengths.
-5. **Provide reasoning**: Focus on WHY their skills makes them suitable for the assigned task.
+1. **STRICT MATCHING (CRITICAL)**: You MUST only assign a score greater than 0 if the candidate possesses at least one of the REQUIRED skills.
+2. **Select the Core Team**: Identify the best {project.team_size} candidates who form a complete, well-rounded team to tackle the project.
+3. **Assign Scores**:
+   - 18-20: Perfect match (Core team member, matches skills + specialization).
+   - 14-17: Strong match (Potential team member).
+   - 1-13: Partial match (Backup or loose fit).
+   - 0: NO MATCH (Candidate does not have the required skills).
+4. **Distribute Tasks**:
+   - For the top {project.team_size} candidates (the Core Team), assign specific, distinct, and critical tasks from the Project Tasks list.
+   - Ensure the Core Team covers ALL critical project requirements together.
+   - For others, assign "Backup" or "Training Required".
+5. **Zero Score Rule**: If a candidate lists "No skills listed" or has NO matching skills, their score MUST be 0.
+6. **Identify matched skills**: List ONLY skills that actually match.
 
-Consider:
-- **Skill Overlap (CRITICAL)**: Any candidate with even ONE matching skill should be considered a "Match" and get a score of at least 10.
-- Proficiency level and years of experience.
-- Specialization alignment.
-
-Return ALL potential matches (do not limit to top 10 if more qualify), sorted by score (highest first).
+Return ALL candidates, even those with score 0.
 
 Return your response in the following JSON format:
 {{
@@ -164,29 +164,30 @@ Return your response in the following JSON format:
             
             for req in required_names:
                 if req in cand_skills_str:
-                    score += 10  # Increased from 5 to ensure visibility
+                    score += 10
                     matched_skills.append(req.title())
             
-            # Bonus for specialization
-            p_title = (project.title or "").lower()
-            c_spec = (cand.get('specialization') or "").lower()
-            p_desc = (project.description or "").lower()
-            
-            if (p_title and p_title in c_spec) or (c_spec and c_spec in p_desc):
-                score += 3
+            # Bonus for specialization ONLY if skills match
+            if score > 0:
+                p_title = (project.title or "").lower()
+                c_spec = (cand.get('specialization') or "").lower()
+                p_desc = (project.description or "").lower()
+                
+                if (p_title and p_title in c_spec) or (c_spec and c_spec in p_desc):
+                    score += 3
             
             # Cap at 20
             score = min(score, 20)
             
-            if score > 0:
-                matches.append({
-                    "employee_id": cand['id'],
-                    "employee_name": cand['name'],
-                    "match_score": float(score),
-                    "matched_skills": matched_skills,
-                    "suggested_task": tasks[0].get('title', 'Project Implementation') if tasks else 'Implementation',
-                    "reasoning": f"Matched skills ({', '.join(matched_skills)}) identified via keyword analysis. (Fallback Mode)"
-                })
+            # ALWAYS return candidate, even if score is 0
+            matches.append({
+                "employee_id": cand['id'],
+                "employee_name": cand['name'],
+                "match_score": float(score),
+                "matched_skills": matched_skills,
+                "suggested_task": tasks[0].get('title', 'Project Implementation') if tasks else 'Implementation',
+                "reasoning": f"Matched skills ({', '.join(matched_skills)}) identified via keyword analysis." if score > 0 else "No matching skills found."
+            })
         
         # Sort by score
         matches.sort(key=lambda x: x['match_score'], reverse=True)

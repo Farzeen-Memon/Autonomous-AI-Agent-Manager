@@ -1,28 +1,28 @@
-import asyncio
 import os
 import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
+from app.models.employee import EmployeeProfile, Skill
 from dotenv import load_dotenv
 
-# Add backend to path
-sys.path.append(os.path.join(os.getcwd(), "backend"))
 load_dotenv('backend/.env')
 
-async def dump_skills():
-    client = AsyncIOMotorClient(os.getenv('MONGODB_URL', 'mongodb://localhost:27017'))
-    db = client[os.getenv('DATABASE_NAME', 'nexo_db')]
+async def dump():
+    client = AsyncIOMotorClient(os.getenv('MONGODB_URL'))
+    await init_beanie(database=client['nexo_db'], document_models=[EmployeeProfile, Skill])
     
-    profiles = await db.user_profiles.find().to_list(100)
-    print(f"TOTAL PROFILES: {len(profiles)}")
+    profiles = await EmployeeProfile.find_all().to_list()
     
     for p in profiles:
-        name = p.get('full_name', 'Unknown')
-        p_id = p['_id']
-        skills = await db.skills.find({'employee_id': p_id}).to_list(100)
-        skill_names = [s.get('skill_name') for s in skills]
-        print(f"EMPLOYEE: {name} | SKILLS: {', '.join(skill_names)}")
-    
+        skills = await Skill.find(Skill.employee_id == p.id).to_list()
+        s_names = [s.skill_name for s in skills]
+        print(f"NAME: {p.full_name}")
+        print(f"SKILLS: {s_names}")
+        print("-" * 20)
+
     client.close()
 
 if __name__ == "__main__":
-    asyncio.run(dump_skills())
+    asyncio.run(dump())
