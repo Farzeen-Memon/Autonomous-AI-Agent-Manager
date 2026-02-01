@@ -58,25 +58,26 @@ Project Details:
 - Required Skills: {', '.join(required_skills)}
 - Experience Level: {experience_required} years
 
-Your task is to break down this project into specific, actionable tasks. For each task, provide:
-1. A clear, concise title
-2. A detailed description of what needs to be done
-3. Estimated hours to complete
+Your task is to break down this project into EXACTLY 10 specific, actionable technical tasks. Ensure a balanced distribution across these CATEGORIES:
+1. **Frontend UI**: Design and implementation of core user interfaces.
+2. **Authentication/Login**: Secure user access and session management.
+3. **Backend Logic**: Server-side processing and business rules.
+4. **Database Schema**: Data modeling and persistence layer.
+5. **Infrastructure/DevOps**: Deployment, environment setup, or integration.
+
+For each task, provide:
+1. A unique, specific title (e.g., "Implement Main Dashboard UI" instead of "Frontend Work")
+2. A detailed description of implementation details
+3. Estimated hours to complete (realistic)
 4. Required skills for that specific task
 5. Priority level (high, medium, or low)
-
-Also provide:
-- Total estimated project hours
-- Recommended team size based on the workload
-
-Generate 5-10 tasks that cover the full project scope. Be specific and practical.
 
 Return your response in the following JSON format:
 {{
     "tasks": [
         {{
-            "title": "Task title",
-            "description": "Detailed description",
+            "title": "Clear, Unique Task Title",
+            "description": "Exhaustive implementation details for this specific task",
             "estimated_hours": 8.0,
             "required_skills": ["skill1", "skill2"],
             "priority": "high"

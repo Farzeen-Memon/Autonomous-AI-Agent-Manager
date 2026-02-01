@@ -2,13 +2,57 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import Logo from '../components/common/Logo';
+import { API_BASE_URL } from '../utils/constants';
 import '../styles/EmployeeTaskBriefing.css';
 
 const EmployeeTaskBriefingPage = () => {
     const navigate = useNavigate();
-    const { user } = useUser();
+    const { user, logout: contextLogout } = useUser();
+    const [tasks, setTasks] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+
+    const fetchMyTasks = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/projects/my-projects`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (response.ok) {
+                const projects = await response.json();
+                const myProfileId = user?.profile?.id || user?.profile?._id;
+
+                // Extract all tasks assigned to this employee across all projects
+                const allMyTasks = [];
+                projects.forEach(project => {
+                    if (project.tasks) {
+                        project.tasks.forEach(task => {
+                            // Backend uses string or ObjectId, normalize for comparison
+                            if (task.assigned_to === myProfileId || String(task.assigned_to) === String(myProfileId)) {
+                                allMyTasks.push({
+                                    ...task,
+                                    projectName: project.title,
+                                    projectId: project.id || project._id
+                                });
+                            }
+                        });
+                    }
+                });
+                setTasks(allMyTasks);
+            }
+        } catch (error) {
+            console.error('Failed to fetch tasks:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
+        if (user) {
+            fetchMyTasks();
+        }
+    }, [user]);
 
     const handleLogout = () => {
+        contextLogout();
         navigate('/login');
     };
 
@@ -125,43 +169,34 @@ const EmployeeTaskBriefingPage = () => {
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-primary/10">
-                                    <TaskRow
-                                        name="Market Sentiment Analysis"
-                                        id="NX-8842"
-                                        status="In Progress"
-                                        date="Oct 12, 2023"
-                                        deadline="Oct 15, 2023"
-                                        skills={['NLP', 'Data Analysis']}
-                                        statusColor="bg-primary/20 text-primary border-primary/30"
-                                    />
-                                    <TaskRow
-                                        name="Cloud Architecture Audit"
-                                        id="NX-9012"
-                                        status="Done"
-                                        date="Oct 10, 2023"
-                                        deadline="Oct 12, 2023"
-                                        skills={['Cloud Architecture']}
-                                        statusColor="bg-cyan/10 text-cyan border-cyan/30"
-                                    />
-                                    <TaskRow
-                                        name="Neural Net Optimization"
-                                        id="NX-1120"
-                                        status="To-Do"
-                                        date="Oct 13, 2023"
-                                        deadline="Oct 18, 2023"
-                                        skills={['Machine Learning', 'Python']}
-                                        statusColor="bg-white/5 text-lavender border-white/10"
-                                    />
-                                    <TaskRow
-                                        name="API Integration Testing"
-                                        id="NX-4432"
-                                        status="In Progress"
-                                        date="Oct 11, 2023"
-                                        deadline="Oct 14, 2023"
-                                        skills={['QA Automation']}
-                                        statusColor="bg-primary/20 text-primary border-primary/30"
-                                    />
+                                <tbody>
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan="6" className="px-6 py-10 text-center text-lavender opacity-50">
+                                                <span className="material-symbols-outlined animate-spin mb-2">refresh</span>
+                                                <p className="text-xs uppercase tracking-widest">Scanning Neural Links...</p>
+                                            </td>
+                                        </tr>
+                                    ) : tasks.length > 0 ? (
+                                        tasks.map((task, idx) => (
+                                            <TaskRow
+                                                key={idx}
+                                                name={task.title}
+                                                projectName={task.projectName}
+                                                status="Assigned"
+                                                date="Oct 12, 2023" // Could use project.created_at
+                                                deadline={task.deadline || "TBD"}
+                                                skills={task.required_skills || []}
+                                                statusColor="bg-primary/20 text-primary border-primary/30"
+                                            />
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="6" className="px-6 py-10 text-center text-lavender opacity-50">
+                                                <p className="text-xs uppercase tracking-widest">No Active Assignments Foundation</p>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -209,11 +244,11 @@ const EmployeeTaskBriefingPage = () => {
     );
 };
 
-const TaskRow = ({ name, id, status, date, deadline, skills, statusColor }) => (
+const TaskRow = ({ name, projectName, status, date, deadline, skills, statusColor }) => (
     <tr className="hover:bg-white/5 transition-colors group">
         <td className="px-6 py-5">
             <p className="font-semibold text-sm text-white">{name}</p>
-            <p className="text-[10px] text-lavender/60 mt-0.5 font-mono">ID: {id}</p>
+            <p className="text-[10px] text-lavender/60 mt-0.5 font-mono uppercase tracking-tighter">Project: {projectName}</p>
         </td>
         <td className="px-6 py-5">
             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${statusColor}`}>

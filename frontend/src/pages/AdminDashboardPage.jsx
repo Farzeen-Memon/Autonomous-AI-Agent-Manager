@@ -45,7 +45,7 @@ const AdminDashboardPage = () => {
                 }
             });
             if (response.ok) {
-                setProjects(projects.filter(p => p._id !== projectId));
+                setProjects(projects.filter(p => (p._id || p.id) !== projectId));
             } else {
                 alert('Failed to delete project');
             }
@@ -140,7 +140,10 @@ const AdminDashboardPage = () => {
                             <input className="bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm w-64 focus:ring-primary focus:border-primary outline-none" placeholder="Search projects..." type="text" />
                         </div>
                         <button
-                            onClick={() => navigate('/admin/project-matching')}
+                            onClick={() => {
+                                localStorage.removeItem('nexo_project_draft');
+                                navigate('/admin/project-matching');
+                            }}
                             className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/20"
                         >
                             <span className="material-symbols-outlined text-base">add_circle</span>
@@ -181,11 +184,11 @@ const AdminDashboardPage = () => {
                         ) : (
                             projects.filter(p => p.status === 'finalized').map(project => (
                                 <ProjectCard
-                                    key={project._id}
+                                    key={project._id || project.id}
                                     project={project}
                                     navigate={navigate}
                                     onDelete={handleDeleteProject}
-                                    isPortfolio={true} // Reusing portfolio styling for active/finalized
+                                    isPortfolio={true}
                                 />
                             ))
                         )}
@@ -210,11 +213,12 @@ const AdminDashboardPage = () => {
                         ) : (
                             projects.filter(p => !p.status || p.status === 'draft').map(project => (
                                 <ProjectCard
-                                    key={project._id}
+                                    key={project._id || project.id}
                                     project={project}
                                     navigate={navigate}
                                     onDelete={handleDeleteProject}
                                     isPortfolio={false}
+                                    isDraft={true}
                                 />
                             ))
                         )}
@@ -282,49 +286,58 @@ const AdminDashboardPage = () => {
     );
 };
 
-const ProjectCard = ({ project, navigate, onDelete, isPortfolio = false }) => (
-    <div
-        onClick={() => navigate('/admin/project-details', { state: { projectId: project._id } })}
-        className={`bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:border-primary/50 transition-all group p-5 cursor-pointer relative ${isPortfolio ? 'neural-portfolio-card' : ''}`}
-    >
-        <button
-            onClick={(e) => onDelete(e, project._id)}
-            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-            title="Delete Project"
+const ProjectCard = ({ project, navigate, onDelete, isPortfolio = false, isDraft = false }) => {
+    const projId = project._id || project.id;
+    return (
+        <div
+            onClick={() => {
+                if (isDraft) {
+                    navigate('/admin/neural-mapping', { state: { projectId: projId } });
+                } else {
+                    navigate('/admin/project-details', { state: { projectId: projId } });
+                }
+            }}
+            className={`bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:border-primary/50 transition-all group p-5 cursor-pointer relative ${isPortfolio ? 'neural-portfolio-card' : ''}`}
         >
-            <span className="material-symbols-outlined text-sm">delete</span>
-        </button>
-        <div className="flex items-start justify-between mb-4">
-            <div className={`p-2 rounded-lg ${project.status === 'finalized' ? 'text-primary bg-primary/10' : 'text-slate-500 bg-slate-100'}`}>
-                <span className="material-symbols-outlined">{isPortfolio ? 'verified' : 'hub'}</span>
+            <button
+                onClick={(e) => onDelete(e, projId)}
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all z-10"
+                title="Delete Project"
+            >
+                <span className="material-symbols-outlined text-sm">delete</span>
+            </button>
+            <div className="flex items-start justify-between mb-4">
+                <div className={`p-2 rounded-lg ${project.status === 'finalized' ? 'text-primary bg-primary/10' : 'text-slate-500 bg-slate-100'}`}>
+                    <span className="material-symbols-outlined">{isPortfolio ? 'verified' : 'hub'}</span>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase tracking-wide ${project.status === 'finalized' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-slate-500 bg-slate-500/10 border-slate-500/20'}`}>
+                    {project.status || 'Draft'}
+                </span>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase tracking-wide ${project.status === 'finalized' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-slate-500 bg-slate-500/10 border-slate-500/20'}`}>
-                {project.status || 'Draft'}
-            </span>
+            <h3 className="text-lg font-bold mb-1 group-hover:text-primary transition-colors">{project.title}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-medium line-clamp-2">{project.description}</p>
+            <div className="space-y-4">
+                <div>
+                    <div className="flex justify-between items-center mb-1.5 text-xs font-bold uppercase tracking-wider">
+                        <span className="text-slate-500">Resources</span>
+                        <span className="text-primary">{project.required_skills?.length || 0} Specialties</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className={`h-full ${isPortfolio ? 'bg-emerald-500' : 'bg-primary'} glow-bar transition-all`} style={{ width: isPortfolio ? '100%' : '45%' }}></div>
+                    </div>
+                </div>
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex -space-x-2">
+                        <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">AI</div>
+                        <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-600 flex items-center justify-center text-[10px] font-bold text-white">CH</div>
+                    </div>
+                    <button className="text-xs font-bold px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase tracking-widest">
+                        {isPortfolio ? 'View Live System' : 'Open Neural Hub'}
+                    </button>
+                </div>
+            </div>
         </div>
-        <h3 className="text-lg font-bold mb-1 group-hover:text-primary transition-colors">{project.title}</h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-medium line-clamp-2">{project.description}</p>
-        <div className="space-y-4">
-            <div>
-                <div className="flex justify-between items-center mb-1.5 text-xs font-bold uppercase tracking-wider">
-                    <span className="text-slate-500">Resources</span>
-                    <span className="text-primary">{project.required_skills?.length || 0} Specialties</span>
-                </div>
-                <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className={`h-full ${isPortfolio ? 'bg-emerald-500' : 'bg-primary'} glow-bar transition-all`} style={{ width: isPortfolio ? '100%' : '45%' }}></div>
-                </div>
-            </div>
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex -space-x-2">
-                    <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">AI</div>
-                    <div className="size-7 rounded-full border-2 border-slate-900 bg-slate-600 flex items-center justify-center text-[10px] font-bold text-white">CH</div>
-                </div>
-                <button className="text-xs font-bold px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase tracking-widest">
-                    {isPortfolio ? 'View Live System' : 'Open Neural Hub'}
-                </button>
-            </div>
-        </div>
-    </div>
-);
+    );
+};
 
 export default AdminDashboardPage;

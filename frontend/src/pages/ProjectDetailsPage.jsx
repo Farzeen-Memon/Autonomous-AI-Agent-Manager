@@ -95,7 +95,10 @@ const ProjectDetailsPage = () => {
                                 <span className="material-symbols-outlined text-lg">download</span>
                                 Export Data
                             </button>
-                            <button className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm shadow-lg shadow-primary/20 transition-all">
+                            <button
+                                onClick={() => navigate('/admin/project-matching', { state: { projectId } })}
+                                className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm shadow-lg shadow-primary/20 transition-all"
+                            >
                                 <span className="material-symbols-outlined text-lg">edit</span>
                                 Edit Project
                             </button>

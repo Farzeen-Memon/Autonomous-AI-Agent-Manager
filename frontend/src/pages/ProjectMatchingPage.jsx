@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
 // Triggering re-build for real-time matching support
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../components/common/Logo';
 import { API_BASE_URL } from '../utils/constants';
 import '../styles/ProjectMatching.css';
 
 const ProjectMatchingPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const incomingProjectId = location.state?.projectId;
     const { user } = useUser();
     const [teamSize, setTeamSize] = useState(8);
     const [selectionMode, setSelectionMode] = useState('auto'); // 'auto' or 'manual'
@@ -21,6 +23,8 @@ const ProjectMatchingPage = () => {
 
     const [employees, setEmployees] = useState([]);
     const [isMatching, setIsMatching] = useState(false);
+    const [lockedIds, setLockedIds] = useState([]); // User manually selected/locked IDs
+    const [projectId, setProjectId] = useState(null);
 
 
     const fetchEmployees = React.useCallback(async () => {
@@ -122,6 +126,114 @@ const ProjectMatchingPage = () => {
         }
     }, [title, description, skills, experienceRequired, teamSize]);
 
+    // Handle manual toggle
+    const handleToggleEmployee = (empid) => {
+        setSelectionMode('manual');
+        setLockedIds(prev => {
+            if (prev.includes(empid)) {
+                return prev.filter(id => id !== empid);
+            } else {
+                return [...prev, empid];
+            }
+        });
+    };
+
+    // Computed selection: Final team = Locked + Auto-fill (if N < teamSize)
+    const selectedIds = React.useMemo(() => {
+        const getEmpId = (e) => (e.profile?.id || e.profile?._id || e.employee_id || e._id);
+
+        if (selectionMode === 'auto') {
+            // In full auto, just pick top N
+            return employees
+                .filter(e => (parseFloat(e.score || e.match_score || 0) > 0))
+                .slice(0, parseInt(teamSize))
+                .map(getEmpId);
+        } else {
+            // In manual, locks are mandatory, fill rest
+            const finalTeam = [...lockedIds];
+            if (finalTeam.length < parseInt(teamSize)) {
+                const remaining = parseInt(teamSize) - finalTeam.length;
+                const fillers = employees
+                    .filter(e => {
+                        const id = getEmpId(e);
+                        const hasScore = parseFloat(e.score || e.match_score || 0) > 0;
+                        return !finalTeam.includes(id) && hasScore;
+                    })
+                    .slice(0, remaining)
+                    .map(getEmpId);
+                return [...finalTeam, ...fillers];
+            }
+            return finalTeam;
+        }
+    }, [employees, teamSize, selectionMode, lockedIds]);
+
+    // Load state: Either from API (if editing existing) or localStorage (if new draft)
+    React.useEffect(() => {
+        const loadInitialData = async () => {
+            if (incomingProjectId) {
+                // Scenario A: Editing an existing project (finalized or draft)
+                try {
+                    const response = await fetch(`${API_BASE_URL}/projects/${incomingProjectId}`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        const proj = data.project;
+                        if (proj.title) setTitle(proj.title);
+                        if (proj.description) setDescription(proj.description);
+                        if (proj.team_size) setTeamSize(proj.team_size);
+                        if (proj.required_skills) setSkills(proj.required_skills.map(s => typeof s === 'string' ? s : s.skill_name));
+                        if (proj.experience_required) setExperienceRequired(proj.experience_required);
+                        if (proj.status) setPriority(proj.status === 'finalized' ? 'Critical' : 'Standard');
+                        if (proj.assigned_team) setLockedIds(proj.assigned_team);
+                        setProjectId(incomingProjectId);
+                        setSelectionMode('manual'); // Assume manual if we have a saved team
+                        return; // Found existing, skip localStorage
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch project for editing", e);
+                }
+            }
+
+            // Scenario B: Restoring a new project draft
+            const saved = localStorage.getItem('nexo_project_draft');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    // Only restore if we aren't currently targeting a specific incoming project
+                    if (!incomingProjectId) {
+                        if (data.title) setTitle(data.title);
+                        if (data.description) setDescription(data.description);
+                        if (data.teamSize) setTeamSize(data.teamSize);
+                        if (data.skills) setSkills(data.skills);
+                        if (data.experienceRequired) setExperienceRequired(data.experienceRequired);
+                        if (data.priority) setPriority(data.priority);
+                        if (data.deadline) setDeadline(data.deadline);
+                        if (data.lockedIds) setLockedIds(data.lockedIds);
+                        if (data.selectionMode) setSelectionMode(data.selectionMode);
+                        if (data.projectId) setProjectId(data.projectId);
+                    }
+                } catch (e) {
+                    console.error("Failed to parse saved project draft", e);
+                }
+            }
+        };
+
+        loadInitialData();
+    }, [incomingProjectId]);
+
+    // Save state to localStorage on changes
+    React.useEffect(() => {
+        const draft = {
+            title, description, teamSize, skills,
+            experienceRequired, priority, deadline,
+            lockedIds, selectionMode, projectId
+        };
+        localStorage.setItem('nexo_project_draft', JSON.stringify(draft));
+    }, [title, description, teamSize, skills, experienceRequired, priority, deadline, lockedIds, selectionMode, projectId]);
+
+
+
     // Initial fetch of all employees
     React.useEffect(() => {
         fetchEmployees();
@@ -160,17 +272,7 @@ const ProjectMatchingPage = () => {
 
     const handleSubmit = async () => {
         try {
-            // Filter employees that are "selected". 
-            // We take employees with a match score > 0.
-            // AND we limit it to the teamSize to respect the "number of people needed".
-            const selectedEmployeeIds = employees
-                .filter(e => {
-                    const s = parseFloat(e.score || e.match_score || 0);
-                    return s > 0;
-                })
-                .slice(0, parseInt(teamSize)) // Limit to teamSize
-                .map(e => e.profile?.id || e.profile?._id || e.employee_id);
-
+            // Use the currently selected IDs
             const projectData = {
                 title: title || "Untitled Project",
                 description: description,
@@ -178,11 +280,14 @@ const ProjectMatchingPage = () => {
                 experience_required: parseFloat(experienceRequired),
                 team_size: parseInt(teamSize),
                 status: 'draft',
-                assigned_team: selectedEmployeeIds
+                assigned_team: selectedIds
             };
 
-            const response = await fetch(`${API_BASE_URL}/projects/`, {
-                method: 'POST',
+            const url = projectId ? `${API_BASE_URL}/projects/${projectId}` : `${API_BASE_URL}/projects/`;
+            const method = projectId ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -192,17 +297,17 @@ const ProjectMatchingPage = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                const actualProjectId = data.id || data._id;
-                // Pass the selected employees themselves to avoid refetching/rematching if possible, or just the ID.
-                // We'll pass the ID and let the next page handle it, but we really should use the saved team.
+                const actualProjectId = data.id || data._id || projectId;
+                localStorage.removeItem('nexo_project_draft');
                 navigate('/admin/neural-mapping', { state: { projectId: actualProjectId, title: title || "Untitled Project" } });
             } else {
-                console.error('Failed to create project');
-                navigate('/admin/neural-mapping');
+                const err = await response.text();
+                console.error('Failed to save project:', err);
+                alert('Connection Error: Failed to initialize project core. Please try again.');
             }
         } catch (error) {
             console.error('Error creating project:', error);
-            navigate('/admin/neural-mapping');
+            alert('Criticial Failure: Neural Handshake Interrupted.');
         }
     };
 
@@ -268,14 +373,14 @@ const ProjectMatchingPage = () => {
                         <section className="bg-[#1b1736]/40 border border-[#352e6b] rounded-xl p-8 backdrop-blur-sm flex-1 flex flex-col">
                             <div className="flex items-center gap-3 mb-8">
                                 <span className="material-symbols-outlined text-primary">person_search</span>
-                                <h3 className="text-[38] font-bold text-white">Define Project Identity</h3>
+                                <h3 className="text-3xl font-bold text-white">Define Project Identity</h3>
                             </div>
                             <div className="space-y-8 flex-1">
                                 <div>
                                     <label className="block text-xl font-medium text-slate-300 mb-3">Project Title</label>
                                     <input
                                         className="w-full bg-[#1b1736] border-[#352e6b] rounded-lg px-4 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-                                        placeholder="e.g. Next-Gen Infrastructure Migration"
+                                        placeholder="Enter Project Title (e.g. Project Phoenix)"
                                         type="text"
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
@@ -438,7 +543,8 @@ const ProjectMatchingPage = () => {
                                                     score={emp.score !== undefined ? emp.score : (emp.match_score !== undefined ? emp.match_score : "N/A")}
                                                     img={emp.profile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + (emp.profile?.full_name || emp.employee_name)}
                                                     status="online"
-                                                    defaultChecked={false}
+                                                    checked={selectedIds.includes(emp.profile?.id || emp.profile?._id || emp.employee_id || emp._id)}
+                                                    onToggle={() => handleToggleEmployee(emp.profile?.id || emp.profile?._id || emp.employee_id || emp._id)}
                                                     matchedSkills={emp.matched_skills || []}
                                                 />
                                                 {emp.reasoning && (
@@ -492,7 +598,7 @@ const ProjectMatchingPage = () => {
     );
 };
 
-const CandidateCard = ({ name, role, score, img, status, defaultChecked, matchedSkills }) => {
+const CandidateCard = ({ name, role, score, img, status, checked, onToggle, matchedSkills }) => {
     // Determine status dot color based on score
     const getStatusColor = () => {
         if (score === "N/A" || score === undefined || score === null) return 'bg-gray-500';
@@ -531,7 +637,7 @@ const CandidateCard = ({ name, role, score, img, status, defaultChecked, matched
                         <div className="text-[10px] text-slate-500 uppercase font-mono tracking-tighter">Match Score</div>
                     </div>
                     <div className="w-px h-10 bg-[#352e6b]"></div>
-                    <Toggle defaultChecked={defaultChecked} />
+                    <Toggle checked={checked} onChange={onToggle} />
                 </div>
             </div>
 
@@ -554,17 +660,16 @@ const CandidateCard = ({ name, role, score, img, status, defaultChecked, matched
     );
 };
 
-const Toggle = ({ defaultChecked }) => {
-    const [checked, setChecked] = useState(defaultChecked);
+const Toggle = ({ checked, onChange }) => {
     return (
         <label className="relative inline-flex items-center cursor-pointer">
             <input
                 className="sr-only peer"
                 type="checkbox"
                 checked={checked}
-                onChange={() => setChecked(!checked)}
+                onChange={onChange}
             />
-            <div className="w-12 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            <div className="w-12 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
         </label>
     );
 };

@@ -12,8 +12,10 @@ class EmployeeMatch(BaseModel):
     employee_name: str = Field(description="Employee full name")
     match_score: float = Field(description="Match score from 0-20")
     matched_skills: List[str] = Field(description="Skills that matched project requirements")
-    suggested_task: str = Field(description="Specific project task assigned to this person")
-    reasoning: str = Field(description="Explanation of why this employee is a good fit and suitable for the assigned task")
+    suggested_task: str = Field(description="Specific project task title assigned to this person")
+    suggested_description: str = Field(description="Personalized, detailed implementation briefing for this specific task")
+    suggested_deadline: str = Field(description="Deadline for this task (e.g. '3 days', 'Next Friday')")
+    reasoning: str = Field(description="Explanation of why this employee's skills make them perfect for this SPECIFIC task")
 
 class MatchResponse(BaseModel):
     model_config = ConfigDict(extra='ignore')
@@ -91,7 +93,7 @@ Project Requirements:
 - Experience Required: {project.experience_required} years
 - Target Team Size: {project.team_size} members
 
-Project Tasks:
+Project Tasks (Task Pool):
 {self._format_tasks(tasks) if tasks else "No specific tasks generated yet. Assign general roles."}
 
 Available Candidates:
@@ -99,22 +101,21 @@ Available Candidates:
 
 Your task is to:
 1. **STRICT MATCHING (CRITICAL)**: You MUST only assign a score greater than 0 if the candidate possesses at least one of the REQUIRED skills.
-2. **Select the Core Team**: Identify the best {project.team_size} candidates who form a complete, well-rounded team to tackle the project.
+2. **Select the Core Team**: Identify the best {project.team_size} candidates who form a complete, well-rounded team.
 3. **Assign Scores**:
-   - 18-20: Perfect match (Core team member, matches skills + specialization).
-   - 14-17: Strong match (Potential team member).
-   - 1-13: Partial match (Backup or loose fit).
-   - 0: NO MATCH (Candidate does not have the required skills).
-4. **Distribute Tasks**:
-   - For the top {project.team_size} candidates (the Core Team), assign specific, distinct, and critical tasks from the Project Tasks list.
-   - Ensure the Core Team covers ALL critical project requirements together.
-   - For others, assign "Backup" or "Training Required".
-5. **Zero Score Rule**: If a candidate lists "No skills listed" or has NO matching skills, their score MUST be 0.
-6. **Identify matched skills**: List ONLY skills that actually match.
+   - 18-20: Perfect match.
+   - 14-17: Strong match.
+   - 0: NO MATCH.
+4. **Distribute Tasks (STRICT UNIQUE ASSIGNMENT)**:
+   - For the top {project.team_size} candidates (the Core Team), assign specific, distinct, and unique tasks from the Task Pool list.
+   - **CRITICAL: ONE TASK PER PERSON**: Every Core Team member MUST be assigned a completely different task name from the pool. 
+   - Ensure the Core Team covers the variety of Frontend UI, Backend Logic, Database, and Auth/Login if those exist in the pool.
+   - **Personalized Briefing**: Create a `suggested_description` that is a rich, technical, and unique implementation guide for that specific task.
+   - **Deadlines**: Suggest a realistic `suggested_deadline` (e.g., '3 days', 'Next Friday').
+   - For others (score 0), assign "Backup Support" or "General Integration".
+5. **Zero Score Rule**: If a candidate has NO matching skills, score MUST be 0.
 
-Return ALL candidates, even those with score 0.
-
-Return your response in the following JSON format:
+Return ALL candidates. Return your response in the following JSON format:
 {{
     "matches": [
         {{
@@ -122,8 +123,10 @@ Return your response in the following JSON format:
             "employee_name": "Full Name",
             "match_score": 18.5,
             "matched_skills": ["skill1", "skill2"],
-            "suggested_task": "Name or description of the task assigned",
-            "reasoning": "Strong match because they have [Skill X] which is crucial for [Task Y]..."
+            "suggested_task": "The specific task title from the pool",
+            "suggested_description": "Custom technical briefing for this employee and task",
+            "suggested_deadline": "Realistic deadline",
+            "reasoning": "Why this specific match works"
         }}
     ],
     "total_candidates": {len(candidate_summaries)}
@@ -134,16 +137,10 @@ Return your response in the following JSON format:
             result = await self.llm.generate_structured(
                 prompt=prompt,
                 response_schema=MatchResponse,
-                temperature=0.5  # Lower temperature for more consistent scoring
+                temperature=0.3 # Lower temperature for better constraint following
             )
-            print("LOGGING LLM RESULT:", result) # Add debug monitoring log
-            
             return result
-            
         except Exception as e:
-            import traceback
-            print(f"AI Matching failed, falling back to keyword matching: {str(e)}")
-            traceback.print_exc()
             return self._fallback_match(project, candidate_summaries, tasks)
 
     def _fallback_match(
@@ -159,7 +156,6 @@ Return your response in the following JSON format:
         for cand in summaries:
             score = 0
             matched_skills = []
-            
             cand_skills_str = " ".join(cand['skills']).lower()
             
             for req in required_names:
@@ -167,38 +163,32 @@ Return your response in the following JSON format:
                     score += 10
                     matched_skills.append(req.title())
             
-            # Bonus for specialization ONLY if skills match
-            if score > 0:
-                p_title = (project.title or "").lower()
-                c_spec = (cand.get('specialization') or "").lower()
-                p_desc = (project.description or "").lower()
-                
-                if (p_title and p_title in c_spec) or (c_spec and c_spec in p_desc):
-                    score += 3
-            
-            # Cap at 20
             score = min(score, 20)
             
-            # ALWAYS return candidate, even if score is 0
+            # Round-robin task assignment if AI fails
+            task_title = "Implementation"
+            if tasks:
+                task_idx = len(matches) % len(tasks)
+                task_title = tasks[task_idx].get('title', 'Project Implementation')
+
             matches.append({
                 "employee_id": cand['id'],
                 "employee_name": cand['name'],
                 "match_score": float(score),
                 "matched_skills": matched_skills,
-                "suggested_task": tasks[0].get('title', 'Project Implementation') if tasks else 'Implementation',
+                "suggested_task": task_title,
+                "suggested_description": "Initial implementation of assigned module.",
+                "suggested_deadline": "7 days",
                 "reasoning": f"Matched skills ({', '.join(matched_skills)}) identified via keyword analysis." if score > 0 else "No matching skills found."
             })
         
-        # Sort by score
         matches.sort(key=lambda x: x['match_score'], reverse=True)
-        
         return {
             "matches": matches[:10],
             "total_candidates": len(summaries)
         }
     
     def _format_candidates(self, candidates: List[Dict]) -> str:
-        """Format candidate list for the prompt"""
         formatted = []
         for i, candidate in enumerate(candidates, 1):
             skills_str = ', '.join(candidate['skills']) if candidate['skills'] else 'No skills listed'
@@ -210,7 +200,6 @@ Return your response in the following JSON format:
         return '\n\n'.join(formatted)
 
     def _format_tasks(self, tasks: List[Dict]) -> str:
-        """Format task list for the prompt"""
         formatted = []
         for i, task in enumerate(tasks, 1):
             formatted.append(

@@ -15,6 +15,16 @@ class RequiredSkill(BaseModel):
     skill_name: str
     level: SkillLevel
 
+class ProjectTask(BaseModel):
+    title: str
+    description: str
+    estimated_hours: float
+    required_skills: List[str]
+    priority: str
+    deadline: Optional[str] = "TBD"
+    assigned_to: Optional[PydanticObjectId] = None
+
+
 class Project(Document):
     title: str
     description: str
@@ -22,7 +32,9 @@ class Project(Document):
     experience_required: float # In years
     team_size: int = 5
     status: ProjectStatus = ProjectStatus.DRAFT
+    tasks: List[ProjectTask] = []
     assigned_team: List[PydanticObjectId] = []
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -37,7 +49,10 @@ class ProjectCreate(BaseModel):
     required_skills: List[RequiredSkill]
     experience_required: float
     team_size: Optional[int] = 5
+    status: Optional[ProjectStatus] = ProjectStatus.DRAFT
+    tasks: Optional[List[ProjectTask]] = []
     assigned_team: Optional[List[PydanticObjectId]] = []
+
 
 class ProjectUpdate(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -48,4 +63,6 @@ class ProjectUpdate(BaseModel):
     experience_required: Optional[float] = None
     team_size: Optional[int] = None
     status: Optional[ProjectStatus] = None
+    tasks: Optional[List[ProjectTask]] = None
     assigned_team: Optional[List[PydanticObjectId]] = None
+

@@ -160,31 +160,37 @@ async def match_employees_to_project(
     if not candidates:
         return {"matches": [], "total_candidates": 0}
     
-    tasks = []
-    try:
-        # 1. Generate tasks first to pass to matcher
-        planner = PlannerAgent()
-        required_skills_list = [skill.skill_name for skill in project.required_skills]
-        plan = await planner.plan(
-            project_title=project.title,
-            project_description=project.description,
-            required_skills=required_skills_list,
-            experience_required=project.experience_required
-        )
-        tasks = plan.get("tasks", [])
-    except Exception as e:
-        print(f"Warning: Task planning failed: {e}")
-        # Fallback tasks if AI planning fails
-        tasks = [{"title": "General System Integration", "description": "Execute core project modules", "required_skills": []}]
+    # 1. Use existing tasks if available, otherwise generate
+    tasks = project.tasks or []
+    if not tasks:
+        try:
+            planner = PlannerAgent()
+            required_skills_list = [skill.skill_name for skill in project.required_skills]
+            plan = await planner.plan(
+                project_title=project.title,
+                project_description=project.description,
+                required_skills=required_skills_list,
+                experience_required=project.experience_required
+            )
+            tasks = plan.get("tasks", [])
+            # Persist these tasks so they stay consistent
+            project.tasks = tasks
+            await project.save()
+        except Exception as e:
+            print(f"Warning: Task planning failed: {e}")
+            tasks = [{"title": "General System Integration", "description": "Execute core project modules", "required_skills": []}]
 
     try:
         # 2. Match with tasks
         matcher = MatcherAgent()
         result = await matcher.match(project=project, candidates=candidates, tasks=tasks)
         
-        # Enrich matches with full profile data
+        # Enrich matches with full profile data and filter for Core Team (score > 0)
         enriched_matches = []
         for match in result.get("matches", []):
+            if match["match_score"] <= 0:
+                continue
+                
             # Find the candidate profile
             candidate = next(
                 (c for c in candidates if str(c["profile"].id) == match["employee_id"]),
@@ -197,6 +203,8 @@ async def match_employees_to_project(
                     "score": match["match_score"],
                     "matched_skills": match["matched_skills"],
                     "suggested_task": match["suggested_task"],
+                    "suggested_description": match.get("suggested_description", ""),
+                    "suggested_deadline": match.get("suggested_deadline", "TBD"),
                     "reasoning": match["reasoning"]
                 })
         
@@ -292,6 +300,8 @@ async def match_preview(
                     "score": match["match_score"],
                     "matched_skills": match["matched_skills"],
                     "suggested_task": match["suggested_task"],
+                    "suggested_description": match.get("suggested_description", ""),
+                    "suggested_deadline": match.get("suggested_deadline", "TBD"),
                     "reasoning": match["reasoning"]
                 })
             else:
@@ -305,3 +315,99 @@ async def match_preview(
             status_code=500,
             detail=f"Failed to match employees: {str(e)}"
         )
+
+@router.post("/{project_id}/replan")
+async def replan_project(
+    project_id: PydanticObjectId,
+    current_user: User = Depends(is_admin)
+):
+    """AI-powered project replanning"""
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        # Fetch current team and tasks
+        # For Demo/MVP, we'll re-run matching but with a "replan" context
+        # In a real scenario, we'd look at task progress, deadlines, and conflicts.
+        
+        planner = PlannerAgent()
+        required_skills_list = [skill.skill_name for skill in project.required_skills]
+        plan = await planner.plan(
+            project_title=project.title,
+            project_description=project.description,
+            required_skills=required_skills_list,
+            experience_required=project.experience_required
+        )
+        tasks = plan.get("tasks", [])
+        
+        # Save tasks to project
+        project.tasks = tasks
+        await project.save()
+
+        # Get all candidates
+
+        employees_users = await User.find(User.role == UserRole.EMPLOYEE).to_list()
+        employee_user_ids = [u.id for u in employees_users]
+        profiles = await EmployeeProfile.find(In(EmployeeProfile.user_id, employee_user_ids)).to_list()
+        candidates = []
+        for profile in profiles:
+            skills = await Skill.find(Skill.employee_id == profile.id).to_list()
+            candidates.append({"profile": profile, "skills": skills})
+
+        matcher = MatcherAgent()
+        result = await matcher.match(project=project, candidates=candidates, tasks=tasks)
+        
+        # Enrich matches
+        enriched_matches = []
+        for match in result.get("matches", []):
+            candidate = next((c for c in candidates if str(c["profile"].id) == match["employee_id"]), None)
+            if candidate:
+                enriched_matches.append({
+                    "profile": candidate["profile"],
+                    "skills": candidate["skills"],
+                    "score": match["match_score"],
+                    "matched_skills": match["matched_skills"],
+                    "suggested_task": match["suggested_task"],
+                    "reasoning": match["reasoning"]
+                })
+        
+        return {
+            "status": "success",
+            "message": "Project replanned successfully",
+            "tasks": tasks,
+            "team": enriched_matches
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Replanning failed: {str(e)}")
+
+@router.post("/{project_id}/decompose")
+async def decompose_project(
+    project_id: PydanticObjectId,
+    current_user: User = Depends(is_admin)
+):
+    """Explicit task decomposition agent endpoint"""
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        planner = PlannerAgent()
+        required_skills_list = [skill.skill_name for skill in project.required_skills]
+        plan = await planner.plan(
+            project_title=project.title,
+            project_description=project.description,
+            required_skills=required_skills_list,
+            experience_required=project.experience_required
+        )
+        
+        # Save tasks to project for persistence
+        tasks = plan.get("tasks", [])
+        project.tasks = tasks
+        await project.save()
+        
+        return plan
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Decomposition failed: {str(e)}")
+
