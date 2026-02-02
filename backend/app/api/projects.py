@@ -118,11 +118,21 @@ async def generate_project_plan(
         planner = PlannerAgent()
         required_skills = [skill.skill_name for skill in project.required_skills]
         
+        # Calculate days remaining
+        days_remaining = 7
+        if project.deadline:
+            try:
+                deadline_dt = datetime.fromisoformat(project.deadline.replace('Z', '+00:00'))
+                days_remaining = (deadline_dt.date() - datetime.utcnow().date()).days
+                days_remaining = max(1, days_remaining)
+            except: pass
+
         plan = await planner.plan(
             project_title=project.title,
             project_description=project.description,
             required_skills=required_skills,
-            experience_required=project.experience_required
+            experience_required=project.experience_required,
+            days_remaining=days_remaining
         )
         
         return plan
@@ -168,11 +178,22 @@ async def match_employees_to_project(
         try:
             planner = PlannerAgent()
             required_skills_list = [skill.skill_name for skill in project.required_skills]
+            
+            # Calculate days remaining
+            days_remaining = 7
+            if project.deadline:
+                try:
+                    deadline_dt = datetime.fromisoformat(project.deadline.replace('Z', '+00:00'))
+                    days_remaining = (deadline_dt.date() - datetime.utcnow().date()).days
+                    days_remaining = max(1, days_remaining)
+                except: pass
+
             plan = await planner.plan(
                 project_title=project.title,
                 project_description=project.description,
                 required_skills=required_skills_list,
-                experience_required=project.experience_required
+                experience_required=project.experience_required,
+                days_remaining=days_remaining
             )
             tasks = plan.get("tasks", [])
             # Persist these tasks so they stay consistent
@@ -261,11 +282,22 @@ async def match_preview(
         # 1. Generate tasks for the draft
         planner = PlannerAgent()
         required_skills_list = [skill.skill_name for skill in project.required_skills]
+        
+        # Calculate days remaining
+        days_remaining = 7
+        if project.deadline:
+            try:
+                deadline_dt = datetime.fromisoformat(project.deadline.replace('Z', '+00:00'))
+                days_remaining = (deadline_dt.date() - datetime.utcnow().date()).days
+                days_remaining = max(1, days_remaining)
+            except: pass
+
         plan = await planner.plan(
             project_title=project.title,
             project_description=project.description,
             required_skills=required_skills_list,
-            experience_required=project.experience_required
+            experience_required=project.experience_required,
+            days_remaining=days_remaining
         )
         tasks = plan.get("tasks", [])
     except Exception as e:
@@ -335,11 +367,22 @@ async def replan_project(
         
         planner = PlannerAgent()
         required_skills_list = [skill.skill_name for skill in project.required_skills]
+        
+        # Calculate days remaining
+        days_remaining = 7
+        if project.deadline:
+            try:
+                deadline_dt = datetime.fromisoformat(project.deadline.replace('Z', '+00:00'))
+                days_remaining = (deadline_dt.date() - datetime.utcnow().date()).days
+                days_remaining = max(1, days_remaining)
+            except: pass
+
         plan = await planner.plan(
             project_title=project.title,
             project_description=project.description,
             required_skills=required_skills_list,
-            experience_required=project.experience_required
+            experience_required=project.experience_required,
+            days_remaining=days_remaining
         )
         tasks = plan.get("tasks", [])
         
@@ -396,11 +439,22 @@ async def decompose_project(
     try:
         planner = PlannerAgent()
         required_skills_list = [skill.skill_name for skill in project.required_skills]
+        
+        # Calculate days remaining
+        days_remaining = 7
+        if project.deadline:
+            try:
+                deadline_dt = datetime.fromisoformat(project.deadline.replace('Z', '+00:00'))
+                days_remaining = (deadline_dt.date() - datetime.utcnow().date()).days
+                days_remaining = max(1, days_remaining)
+            except: pass
+
         plan = await planner.plan(
             project_title=project.title,
             project_description=project.description,
             required_skills=required_skills_list,
-            experience_required=project.experience_required
+            experience_required=project.experience_required,
+            days_remaining=days_remaining
         )
         
         # Save tasks to project for persistence

@@ -35,7 +35,8 @@ class PlannerAgent:
         project_title: str, 
         project_description: str,
         required_skills: List[str],
-        experience_required: float
+        experience_required: float,
+        days_remaining: int = 7
     ) -> Dict[str, Any]:
         """
         Generate a detailed project plan with technical tasks.
@@ -47,6 +48,7 @@ class PlannerAgent:
 Project: {project_title}
 Context: {project_description}
 Expertise Level: {experience_required} years
+Project Duration: {days_remaining} days remaining until final deadline.
 
 Your goal is to decompose this project into EXACTLY 10 technical tasks that follow a logical implementation sequence.
 
@@ -56,7 +58,10 @@ CRITICAL LOGIC RULES:
    - Early: Database Schema, Auth, Core API.
    - Middle: Frontend UI, Business Logic, Integration.
    - Late: Testing, DevOps, Production Deployment.
-3. **REALISTIC DEADLINES**: Assign a `deadline` that reflects the order (e.g., 'Day 1-2', 'Day 5', 'Final Phase').
+3. **REALISTIC DEADLINES**: Assign a `deadline` that MUST be within the {days_remaining} day project window.
+   - Use formats like 'Day 1-2', 'Day 3', 'Day {days_remaining}'.
+   - NO task deadline can exceed Day {days_remaining}.
+4. **TIME PRESSURE**: If days remaining is low (e.g. 3-5 days), tasks must be more aggressive and focused on MVP.
 
 Categories to cover:
 - Frontend UI
@@ -71,7 +76,7 @@ For each task, provide:
 3. Estimated Hours: Realistic engineering effort.
 4. Required Skills: Specific technologies needed.
 5. Priority: Based on path-to-launch importance.
-6. Deadline: Relative timing in the project lifecycle.
+6. Deadline: Relative timing in the project lifecycle (MUST be within Day 1 to Day {days_remaining}).
 
 Return ONLY a valid JSON object:
 {{
