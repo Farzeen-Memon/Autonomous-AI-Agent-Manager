@@ -32,7 +32,16 @@ class MatcherAgent:
     
     def __init__(self):
         self.llm = LLMClient()
-    
+
+    @staticmethod
+    def _get_val(obj, key, default=None):
+        """Robustly handle both dicts and objects for attribute/key access"""
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
     async def match(
         self,
         project: Project,
@@ -59,22 +68,16 @@ class MatcherAgent:
             profile = candidate.get('profile')
             skills_docs = candidate.get('skills', [])
             
-            # Robustly handle both dicts and objects
-            def get_val(obj, key, default=None):
-                if isinstance(obj, dict):
-                    return obj.get(key, default)
-                return getattr(obj, key, default)
-
             skill_list = []
             for s in skills_docs:
-                name = get_val(s, 'skill_name', 'Unknown')
-                level = get_val(s, 'level', 'unknown')
-                yoe = get_val(s, 'years_of_experience', 0)
+                name = self._get_val(s, 'skill_name', 'Unknown')
+                level = self._get_val(s, 'level', 'unknown')
+                yoe = self._get_val(s, 'years_of_experience', 0)
                 skill_list.append(f"{name} ({level}, {yoe} years)")
             
-            p_id = str(get_val(profile, 'id', get_val(profile, '_id', 'unknown')))
-            name = get_val(profile, 'full_name', 'Unknown')
-            spec = get_val(profile, 'specialization', 'Unassigned')
+            p_id = str(self._get_val(profile, 'id', self._get_val(profile, '_id', 'unknown')))
+            name = self._get_val(profile, 'full_name', 'Unknown')
+            spec = self._get_val(profile, 'specialization', 'Unassigned')
             
             candidate_summaries.append({
                 'id': p_id,
@@ -111,7 +114,7 @@ Your task is to:
    - **CRITICAL: ONE TASK PER PERSON**: Every Core Team member MUST be assigned a completely different task name from the pool. 
    - Ensure the Core Team covers the variety of Frontend UI, Backend Logic, Database, and Auth/Login if those exist in the pool.
    - **Personalized Briefing**: Create a `suggested_description` that is a rich, technical, and unique implementation guide for that specific task.
-   - **Deadlines**: Suggest a realistic `suggested_deadline` (e.g., '3 days', 'Next Friday').
+   - **Deadlines**: Use the `deadline` provided in the Task Pool for the assigned task.
    - For others (score 0), assign "Backup Support" or "General Integration".
 5. **Zero Score Rule**: If a candidate has NO matching skills, score MUST be 0.
 
@@ -169,7 +172,7 @@ Return ALL candidates. Return your response in the following JSON format:
             task_title = "Implementation"
             if tasks:
                 task_idx = len(matches) % len(tasks)
-                task_title = tasks[task_idx].get('title', 'Project Implementation')
+                task_title = self._get_val(tasks[task_idx], 'title', 'Project Implementation')
 
             matches.append({
                 "employee_id": cand['id'],
@@ -199,12 +202,18 @@ Return ALL candidates. Return your response in the following JSON format:
             )
         return '\n\n'.join(formatted)
 
-    def _format_tasks(self, tasks: List[Dict]) -> str:
+    def _format_tasks(self, tasks: List[Any]) -> str:
         formatted = []
         for i, task in enumerate(tasks, 1):
+            title = self._get_val(task, 'title', 'Unknown Task')
+            description = self._get_val(task, 'description', '')
+            req_skills = self._get_val(task, 'required_skills', [])
+            deadline = self._get_val(task, 'deadline', 'TBD')
+            
             formatted.append(
-                f"{i}. {task.get('title', 'Unknown Task')}\n"
-                f"   Description: {task.get('description', '')}\n"
-                f"   Required Skills: {', '.join(task.get('required_skills', []))}"
+                f"{i}. {title} (Deadline: {deadline})\n"
+                f"   Description: {description}\n"
+                f"   Required Skills: {', '.join(req_skills)}"
             )
         return '\n\n'.join(formatted)
+

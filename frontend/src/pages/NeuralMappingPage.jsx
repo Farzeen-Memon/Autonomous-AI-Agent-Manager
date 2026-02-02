@@ -443,7 +443,7 @@ const NeuralMappingPage = () => {
                                             ))}
                                         </div>
                                         <div className="flex justify-between items-center text-xs text-slate-500">
-                                            <span>Deadline: <span className="text-red-400 font-bold uppercase">Today</span></span>
+                                            <span>Deadline: <span className="text-red-400 font-bold uppercase">{task.deadline || 'TBD'}</span></span>
                                             <span className="flex items-center gap-1.5 font-bold">
                                                 <span className="material-symbols-outlined text-sm">hourglass_empty</span>
                                                 {task.estimated_hours}h

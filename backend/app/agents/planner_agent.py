@@ -11,6 +11,7 @@ class GeneratedTask(BaseModel):
     estimated_hours: float = Field(description="Estimated hours to complete")
     required_skills: List[str] = Field(description="Skills required for this task")
     priority: str = Field(description="Priority level: high, medium, or low")
+    deadline: str = Field(description="Relative deadline (e.g. 'Day 2', 'Week 1', 'After Feature X')")
 
 class PlanResponse(BaseModel):
     model_config = ConfigDict(extra='ignore')
@@ -37,50 +38,51 @@ class PlannerAgent:
         experience_required: float
     ) -> Dict[str, Any]:
         """
-        Generate a detailed project plan with tasks.
-        
-        Args:
-            project_title: Title of the project
-            project_description: Detailed project description
-            required_skills: List of required skills
-            experience_required: Years of experience required
-        
-        Returns:
-            Dictionary containing tasks, estimates, and recommendations
+        Generate a detailed project plan with technical tasks.
         """
         
         # Construct the planning prompt
-        prompt = f"""You are an expert project manager for a software development team.
+        prompt = f"""You are an expert technical architect and project manager.
+        
+Project: {project_title}
+Context: {project_description}
+Expertise Level: {experience_required} years
 
-Project Details:
-- Title: {project_title}
-- Description: {project_description}
-- Required Skills: {', '.join(required_skills)}
-- Experience Level: {experience_required} years
+Your goal is to decompose this project into EXACTLY 10 technical tasks that follow a logical implementation sequence.
 
-Your task is to break down this project into EXACTLY 10 specific, actionable technical tasks. Ensure a balanced distribution across these CATEGORIES:
-1. **Frontend UI**: Design and implementation of core user interfaces.
-2. **Authentication/Login**: Secure user access and session management.
-3. **Backend Logic**: Server-side processing and business rules.
-4. **Database Schema**: Data modeling and persistence layer.
-5. **Infrastructure/DevOps**: Deployment, environment setup, or integration.
+CRITICAL LOGIC RULES:
+1. **SEQUENTIAL DEPENDENCY**: You cannot deploy what isn't built. Infrastructure and Core Features MUST come before 'Final Deployment' or 'Production Setup'.
+2. **PHASED APPROACH**: 
+   - Early: Database Schema, Auth, Core API.
+   - Middle: Frontend UI, Business Logic, Integration.
+   - Late: Testing, DevOps, Production Deployment.
+3. **REALISTIC DEADLINES**: Assign a `deadline` that reflects the order (e.g., 'Day 1-2', 'Day 5', 'Final Phase').
+
+Categories to cover:
+- Frontend UI
+- Authentication/Security
+- Backend API & Logic
+- Database Architecture
+- DevOps/Infrastructure
 
 For each task, provide:
-1. A unique, specific title (e.g., "Implement Main Dashboard UI" instead of "Frontend Work")
-2. A detailed description of implementation details
-3. Estimated hours to complete (realistic)
-4. Required skills for that specific task
-5. Priority level (high, medium, or low)
+1. Title: Unique and specific.
+2. Description: Deep technical implementation details.
+3. Estimated Hours: Realistic engineering effort.
+4. Required Skills: Specific technologies needed.
+5. Priority: Based on path-to-launch importance.
+6. Deadline: Relative timing in the project lifecycle.
 
-Return your response in the following JSON format:
+Return ONLY a valid JSON object:
 {{
     "tasks": [
         {{
-            "title": "Clear, Unique Task Title",
-            "description": "Exhaustive implementation details for this specific task",
+            "title": "Specific Task Name",
+            "description": "Exhaustive implementation guide",
             "estimated_hours": 8.0,
-            "required_skills": ["skill1", "skill2"],
-            "priority": "high"
+            "required_skills": ["React", "FastAPI"],
+            "priority": "high",
+            "deadline": "Day 2"
         }}
     ],
     "total_estimated_hours": 120.0,
@@ -92,7 +94,7 @@ Return your response in the following JSON format:
             result = await self.llm.generate_structured(
                 prompt=prompt,
                 response_schema=PlanResponse,
-                temperature=0.7
+                temperature=0.5 # Lower temperature for better structural consistency
             )
             
             return result
