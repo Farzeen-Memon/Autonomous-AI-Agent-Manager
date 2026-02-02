@@ -142,14 +142,16 @@ async def match_employees_to_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Get all employee users first to exclude admins
-    employees_users = await User.find(User.role == UserRole.EMPLOYEE).to_list()
-    employee_user_ids = [u.id for u in employees_users]
-
-    # Get profiles only for these employees
-    profiles = await EmployeeProfile.find(In(EmployeeProfile.user_id, employee_user_ids)).to_list()
-    candidates = []
+    # If the project has an assigned team, we ONLY match those employees
+    if project.assigned_team:
+        profiles = await EmployeeProfile.find(In(EmployeeProfile.id, project.assigned_team)).to_list()
+    else:
+        # Get all employee users first to exclude admins
+        employees_users = await User.find(User.role == UserRole.EMPLOYEE).to_list()
+        employee_user_ids = [u.id for u in employees_users]
+        profiles = await EmployeeProfile.find(In(EmployeeProfile.user_id, employee_user_ids)).to_list()
     
+    candidates = []
     for profile in profiles:
         skills = await Skill.find(Skill.employee_id == profile.id).to_list()
         candidates.append({

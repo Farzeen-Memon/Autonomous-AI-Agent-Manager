@@ -40,6 +40,8 @@ const NeuralMappingPage = () => {
     const [showReplanUI, setShowReplanUI] = useState(false);
     const [editingTask, setEditingTask] = useState(null); // { type: 'pool' | 'team', index, data }
     const [editForm, setEditForm] = useState({ title: '', description: '', estimated_hours: 0 });
+    const [showTalentPanel, setShowTalentPanel] = useState(false);
+    const [talentPool, setTalentPool] = useState([]);
 
     const fetchProjectDetails = useCallback(async (idToFetch) => {
         const id = idToFetch || projectId;
@@ -87,7 +89,51 @@ const NeuralMappingPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [projectId]);
+    }, [API_BASE_URL, projectId]);
+
+    const fetchAvailableEmployees = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/employees/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                // Filter out already selected team members
+                const currentTeamIds = team.map(m => String(m.profile?._id || m.profile?.id));
+                const available = data.filter(emp => {
+                    const empId = String(emp.id || emp._id);
+                    return !currentTeamIds.includes(empId);
+                });
+                setTalentPool(available);
+            }
+        } catch (error) {
+            console.error("Failed to fetch talent pool:", error);
+        }
+    };
+
+    const handleAddTeamMember = async (employee) => {
+        try {
+            const currentTeamIds = team.map(m => m.profile?._id || m.profile?.id);
+            const updatedTeamIds = [...currentTeamIds, employee.id || employee._id];
+
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ assigned_team: updatedTeamIds })
+            });
+
+            if (response.ok) {
+                setShowTalentPanel(false);
+                fetchProjectDetails(); // Refresh everything
+            }
+        } catch (error) {
+            console.error("Failed to add team member:", error);
+        }
+    };
 
     useEffect(() => {
         const incomingId = location.state?.projectId;
@@ -481,7 +527,18 @@ const NeuralMappingPage = () => {
                                 <span className="material-symbols-outlined text-sm">refresh</span>
                                 Auto-Replan
                             </button>
-                            <button className="p-3 bg-[#1b1736] border border-white/10 rounded-lg hover:bg-white/5">
+                            <button
+                                onClick={() => {
+                                    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                                    recognition.onresult = (event) => {
+                                        const transcript = event.results[0][0].transcript;
+                                        setTasks(prev => [...prev, { title: transcript, description: 'Added via Neural Voice.', estimated_hours: 4, required_skills: [] }]);
+                                    };
+                                    recognition.start();
+                                }}
+                                className="p-3 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 text-primary transition-all"
+                                title="Neural Voice Task Injector"
+                            >
                                 <span className="material-symbols-outlined text-sm">mic</span>
                             </button>
                             <button className="p-3 bg-[#1b1736] border border-white/10 rounded-lg hover:bg-white/5">
@@ -587,11 +644,14 @@ const NeuralMappingPage = () => {
 
                                     {/* Add Employee Symbol */}
                                     <button
-                                        onClick={() => navigate(-1)}
+                                        onClick={() => {
+                                            fetchAvailableEmployees();
+                                            setShowTalentPanel(true);
+                                        }}
                                         className="flex flex-col items-center gap-2 group transition-all"
-                                        title="Add Team Member"
+                                        title="Neural Talent Selection"
                                     >
-                                        <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20 group-hover:border-primary group-hover:bg-primary/5 transition-all flex items-center justify-center text-slate-500 group-hover:text-primary">
+                                        <div className="w-12 h-12 rounded-full border-2 border-dashed border-primary/40 bg-primary/5 group-hover:border-primary group-hover:bg-primary/10 transition-all flex items-center justify-center text-primary/60 group-hover:text-primary">
                                             <span className="material-symbols-outlined text-xl">person_add</span>
                                         </div>
                                         <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter group-hover:text-primary transition-colors">Add</span>
@@ -723,7 +783,7 @@ const NeuralMappingPage = () => {
                                             <div className="flex flex-col items-end bg-amber-400/10 px-2 py-1 rounded border border-amber-400/20">
                                                 <div className="flex items-center gap-1">
                                                     <span className="material-symbols-outlined text-[14px] text-amber-400">hourglass_empty</span>
-                                                    <span className="text-[10px] font-bold text-amber-400 uppercase leading-none">{member.suggested_hours || 0}h Left</span>
+                                                    <span className="text-[10px] font-bold text-amber-400 uppercase leading-none">{member.suggested_hours || 0}h</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -815,6 +875,57 @@ const NeuralMappingPage = () => {
                     </div>
                 </div>
             </footer>
+
+            {/* Talent Selection Panel Modal */}
+            {showTalentPanel && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+                    <div className="absolute inset-0" onClick={() => setShowTalentPanel(false)}></div>
+                    <div className="relative w-full max-w-2xl glass-panel p-8 border-primary/30 shadow-[0_0_50px_rgba(139,124,255,0.2)] animate-slide-up">
+                        <div className="flex justify-between items-center mb-8">
+                            <div>
+                                <h3 className="text-xl font-bold text-white uppercase tracking-tight">Neural Talent Discovery</h3>
+                                <p className="text-xs text-slate-500 font-mono tracking-widest mt-1">SELECT PERSONNEL FOR CORE INTEGRATION</p>
+                            </div>
+                            <button onClick={() => setShowTalentPanel(false)} className="p-2 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-all">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                            {talentPool.length > 0 ? talentPool.map((emp, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-primary/30 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative">
+                                            <img
+                                                src={emp.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.full_name}`}
+                                                className="w-12 h-12 rounded-full border border-white/10"
+                                                alt={emp.full_name}
+                                            />
+                                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-[#120F26] rounded-full"></div>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-white">{emp.full_name}</h4>
+                                            <p className="text-[10px] text-slate-500 uppercase tracking-widest">{emp.specialization || 'Engineer'}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleAddTeamMember(emp)}
+                                        className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg text-xs font-bold text-primary hover:bg-primary hover:text-white transition-all flex items-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">person_add</span>
+                                        Integrate
+                                    </button>
+                                </div>
+                            )) : (
+                                <div className="py-12 text-center">
+                                    <span className="material-symbols-outlined text-4xl text-slate-700 mb-2">group_off</span>
+                                    <p className="text-sm text-slate-500">No additional talent found in secure database.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Task Edit Modal */}
             {editingTask && (
