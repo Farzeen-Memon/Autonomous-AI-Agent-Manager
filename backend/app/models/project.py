@@ -34,6 +34,7 @@ class Project(Document):
     status: ProjectStatus = ProjectStatus.DRAFT
     tasks: List[ProjectTask] = []
     assigned_team: List[PydanticObjectId] = []
+    deadline: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -52,6 +53,7 @@ class ProjectCreate(BaseModel):
     status: Optional[ProjectStatus] = ProjectStatus.DRAFT
     tasks: Optional[List[ProjectTask]] = []
     assigned_team: Optional[List[PydanticObjectId]] = []
+    deadline: Optional[str] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -65,4 +67,5 @@ class ProjectUpdate(BaseModel):
     status: Optional[ProjectStatus] = None
     tasks: Optional[List[ProjectTask]] = None
     assigned_team: Optional[List[PydanticObjectId]] = None
+    deadline: Optional[str] = None
 

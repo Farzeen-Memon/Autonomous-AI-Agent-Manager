@@ -15,6 +15,7 @@ class EmployeeMatch(BaseModel):
     suggested_task: str = Field(description="Specific project task title assigned to this person")
     suggested_description: str = Field(description="Personalized, detailed implementation briefing for this specific task")
     suggested_deadline: str = Field(description="Deadline for this task (e.g. '3 days', 'Next Friday')")
+    suggested_hours: float = Field(default=8.0, description="Estimated hours left/required for this task")
     reasoning: str = Field(description="Explanation of why this employee's skills make them perfect for this SPECIFIC task")
 
 class MatchResponse(BaseModel):
@@ -115,7 +116,8 @@ Your task is to:
    - Ensure the Core Team covers the variety of Frontend UI, Backend Logic, Database, and Auth/Login if those exist in the pool.
    - **Personalized Briefing**: Create a `suggested_description` that is a rich, technical, and unique implementation guide for that specific task.
    - **Deadlines**: Use the `deadline` provided in the Task Pool for the assigned task.
-   - For others (score 0), assign "Backup Support" or "General Integration".
+   - **Neural Load**: Assign the exact `estimated_hours` from the Task Pool as `suggested_hours`.
+   - For others (score 0), assign "Backup Support" or "General Integration" with 0 hours.
 5. **Zero Score Rule**: If a candidate has NO matching skills, score MUST be 0.
 
 Return ALL candidates. Return your response in the following JSON format:
@@ -129,6 +131,7 @@ Return ALL candidates. Return your response in the following JSON format:
             "suggested_task": "The specific task title from the pool",
             "suggested_description": "Custom technical briefing for this employee and task",
             "suggested_deadline": "Realistic deadline",
+            "suggested_hours": 8.0,
             "reasoning": "Why this specific match works"
         }}
     ],
@@ -182,6 +185,7 @@ Return ALL candidates. Return your response in the following JSON format:
                 "suggested_task": task_title,
                 "suggested_description": "Initial implementation of assigned module.",
                 "suggested_deadline": "7 days",
+                "suggested_hours": float(self._get_val(tasks[task_idx], 'estimated_hours', 8.0)) if tasks else 8.0,
                 "reasoning": f"Matched skills ({', '.join(matched_skills)}) identified via keyword analysis." if score > 0 else "No matching skills found."
             })
         

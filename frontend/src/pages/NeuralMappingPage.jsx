@@ -165,6 +165,7 @@ const NeuralMappingPage = () => {
                         assigned_task: m.suggested_task,
                         suggested_description: m.suggested_description,
                         suggested_deadline: m.suggested_deadline,
+                        suggested_hours: m.suggested_hours || 8,
                         match_score: m.score,
                         reasoning: m.reasoning
                     }));
@@ -508,9 +509,64 @@ const NeuralMappingPage = () => {
                         </div>
                         <div className="title-card flex flex-col items-center">
                             <h2 className="text-3xl font-bold tracking-tight mb-3 text-white">{project?.title || "Project Orchestration"}</h2>
-                            <p className="text-xs font-mono text-slate-500 tracking-[0.3em] uppercase mb-6">
+                            <p className="text-xs font-mono text-slate-500 tracking-[0.3em] uppercase mb-4">
                                 {project?.id || project?._id || "PRJ-IDENTITY"} - {isReplanning ? "Re-Orchestrating..." : "Neural Synchronization Active"}
                             </p>
+
+                            {/* Deadline Indicator Moved to Center */}
+                            <div className="flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-lg mb-6 shadow-[0_0_15px_rgba(139,124,255,0.1)]">
+                                <span className={`material-symbols-outlined text-base ${project?.deadline ? 'text-primary' : 'text-slate-600'}`}>
+                                    {project?.deadline ? 'event_upcoming' : 'event_busy'}
+                                </span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Project Deadline</span>
+                                    <span className="h-3 w-px bg-white/10"></span>
+                                    {project?.deadline ? (() => {
+                                        const daysLeft = Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+                                        return (
+                                            <span
+                                                onClick={() => {
+                                                    const newDate = prompt("Calibrate Baseline (YYYY-MM-DD):", project.deadline);
+                                                    if (newDate) {
+                                                        // Update local and remote
+                                                        fetch(`${API_BASE_URL}/projects/${projectId}`, {
+                                                            method: 'PUT',
+                                                            headers: {
+                                                                'Content-Type': 'application/json',
+                                                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                                            },
+                                                            body: JSON.stringify({ deadline: newDate })
+                                                        }).then(() => fetchProjectDetails());
+                                                    }
+                                                }}
+                                                className={`text-xs font-bold uppercase tracking-[0.1em] cursor-pointer hover:underline ${daysLeft < 3 ? 'text-red-400 animate-pulse' : 'text-white'}`}
+                                            >
+                                                {daysLeft <= 0 ? "Final Phase / Overdue" : `${daysLeft} Units (Days) Remaining`}
+                                            </span>
+                                        );
+                                    })() : (
+                                        <button
+                                            onClick={() => {
+                                                const newDate = prompt("Set Project Baseline (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+                                                if (newDate) {
+                                                    fetch(`${API_BASE_URL}/projects/${projectId}`, {
+                                                        method: 'PUT',
+                                                        headers: {
+                                                            'Content-Type': 'application/json',
+                                                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                                        },
+                                                        body: JSON.stringify({ deadline: newDate })
+                                                    }).then(() => fetchProjectDetails());
+                                                }
+                                            }}
+                                            className="text-xs font-bold text-primary uppercase tracking-widest hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">edit_calendar</span>
+                                            Set Baseline
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
 
                             {/* Selected Team Members in Center */}
                             {team.length > 0 && (
@@ -528,6 +584,18 @@ const NeuralMappingPage = () => {
                                             <span className="text-[11px] font-bold text-slate-300 uppercase tracking-tighter">{member.profile?.full_name?.split(' ')[0]}</span>
                                         </div>
                                     ))}
+
+                                    {/* Add Employee Symbol */}
+                                    <button
+                                        onClick={() => navigate(-1)}
+                                        className="flex flex-col items-center gap-2 group transition-all"
+                                        title="Add Team Member"
+                                    >
+                                        <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20 group-hover:border-primary group-hover:bg-primary/5 transition-all flex items-center justify-center text-slate-500 group-hover:text-primary">
+                                            <span className="material-symbols-outlined text-xl">person_add</span>
+                                        </div>
+                                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter group-hover:text-primary transition-colors">Add</span>
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -646,34 +714,50 @@ const NeuralMappingPage = () => {
                                             <div className="text-[10px] text-slate-600 uppercase font-mono tracking-tighter">Capacity</div>
                                         </div>
                                     </div>
-                                    <div className="p-3 bg-white/5 rounded-lg border border-white/5 group-hover:border-primary/30 transition-all">
-                                        <p className="text-[10px] font-mono text-primary mb-1 uppercase tracking-widest">Assigned Task</p>
-                                        <p className="text-xs font-bold text-slate-300 leading-tight mb-2">{member.assigned_task || 'Implementation'}</p>
-                                        <div className="flex justify-between items-center">
+                                    <div className="p-4 bg-white/5 rounded-lg border border-white/5 group-hover:border-primary/30 transition-all">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <p className="text-[10px] font-mono text-primary mb-1 uppercase tracking-widest opacity-70">Assigned Task</p>
+                                                <p className="text-base font-bold text-white leading-tight">{member.assigned_task || 'Implementation'}</p>
+                                            </div>
+                                            <div className="flex flex-col items-end bg-amber-400/10 px-2 py-1 rounded border border-amber-400/20">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[14px] text-amber-400">hourglass_empty</span>
+                                                    <span className="text-[10px] font-bold text-amber-400 uppercase leading-none">{member.suggested_hours || 0}h Left</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between items-center mt-4">
                                             <div className="flex gap-2">
-                                                {member.skills?.slice(0, 2).map((s, i) => (
-                                                    <span key={i} className="text-[10px] px-2 py-1 bg-white/10 text-slate-300 rounded uppercase font-bold">{s.skill_name || s}</span>
+                                                {(member.matched_skills || member.skills)?.slice(0, 2).map((s, i) => (
+                                                    <span key={i} className="text-[10px] px-2.5 py-1 bg-white/10 text-slate-300 rounded uppercase font-bold border border-white/5">{s.skill_name || s}</span>
                                                 ))}
                                             </div>
                                             <button
                                                 onClick={() => handleEditTask('team', idx, member)}
-                                                className="text-xs font-bold text-primary hover:underline"
+                                                className="text-xs font-bold text-primary hover:text-white px-3 py-1.5 bg-primary/10 rounded-lg transition-all flex items-center gap-1.5"
                                             >
-                                                Edit Task
+                                                <span className="material-symbols-outlined text-sm">edit_square</span>
+                                                Calibrate
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             )) : (
                                 <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
-                                    <span className="material-symbols-outlined text-4xl mb-2">person_add</span>
-                                    <p className="text-xs">No team members assigned yet.</p>
+                                    <span className="material-symbols-outlined text-4xl mb-2 text-slate-600">person_add</span>
+                                    <p className="text-sm font-bold">Inert Team</p>
+                                    <p className="text-xs text-slate-500">Wait for neural distribution.</p>
                                 </div>
                             )}
                         </div>
 
-                        <button className="mt-6 w-full py-3 border border-dashed border-white/20 rounded-xl text-xs font-bold text-slate-500 hover:text-white hover:border-white/40 transition-all flex items-center justify-center gap-2">
-                            <span className="material-symbols-outlined text-sm">add</span> Add Task
+                        <button
+                            onClick={() => handleEditTask('pool', tasks.length, { title: 'New Core Task', description: '', estimated_hours: 8 })}
+                            className="mt-6 w-full py-4 border border-dashed border-primary/30 rounded-xl text-sm font-bold text-primary hover:text-white hover:border-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-3 bg-primary/5"
+                        >
+                            <span className="material-symbols-outlined text-lg">add_circle</span>
+                            <span>Sync New Task</span>
                         </button>
                     </div>
                 </section>

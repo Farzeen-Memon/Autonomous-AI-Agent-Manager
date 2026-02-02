@@ -185,6 +185,7 @@ const ProjectMatchingPage = () => {
                         if (proj.required_skills) setSkills(proj.required_skills.map(s => typeof s === 'string' ? s : s.skill_name));
                         if (proj.experience_required) setExperienceRequired(proj.experience_required);
                         if (proj.status) setPriority(proj.status === 'finalized' ? 'Critical' : 'Standard');
+                        if (proj.deadline) setDeadline(proj.deadline);
                         if (proj.assigned_team) setLockedIds(proj.assigned_team);
                         setProjectId(incomingProjectId);
                         setSelectionMode('manual'); // Assume manual if we have a saved team
@@ -280,6 +281,7 @@ const ProjectMatchingPage = () => {
                 experience_required: parseFloat(experienceRequired),
                 team_size: parseInt(teamSize),
                 status: 'draft',
+                deadline: deadline,
                 assigned_team: selectedIds
             };
 
