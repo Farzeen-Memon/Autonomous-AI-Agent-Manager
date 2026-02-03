@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from app.models.user import User, UserRole
 from app.models.project import Project, ProjectCreate, ProjectUpdate, ProjectStatus
 from app.models.employee import EmployeeProfile, Skill, SkillLevel
@@ -10,21 +11,24 @@ from beanie import PydanticObjectId
 from beanie.operators import In
 from datetime import datetime
 
+from bson import ObjectId
+from app.core.serialization import serialize_doc
+
 router = APIRouter()
 
 is_admin = RoleChecker([UserRole.ADMIN])
 is_authenticated = get_current_user
 
-@router.post("/", response_model=Project)
+@router.post("/", response_model=dict)
 async def create_project(
     project_data: ProjectCreate,
     current_user: User = Depends(is_admin)
 ):
     project = Project(**project_data.dict())
     await project.insert()
-    return project
+    return serialize_doc(project)
 
-@router.get("/", response_model=List[Project])
+@router.get("/", response_model=List[dict])
 async def list_projects(
     status: Optional[ProjectStatus] = None,
     current_user: User = Depends(is_authenticated)
@@ -32,12 +36,52 @@ async def list_projects(
     query = {}
     if status:
         query["status"] = status
-    return await Project.find(query).to_list()
+    
+    projects = await Project.find(query).to_list()
+    
+    # Enrich with team previews for dashboard
+    enriched_projects = []
+    for project in projects:
+        team_previews = []
+        if project.assigned_team:
+            for emp_id in project.assigned_team:
+                profile = await EmployeeProfile.get(emp_id)
+                if profile:
+                    team_previews.append({
+                        "id": str(profile.id),
+                        "full_name": profile.full_name,
+                        "avatar_url": profile.avatar_url
+                    })
+        
+        project_dict = serialize_doc(project)
+        project_dict["team_previews"] = team_previews
+        enriched_projects.append(project_dict)
+        
+    return enriched_projects
 
-@router.get("/portfolio", response_model=List[Project])
+@router.get("/portfolio", response_model=List[dict])
 async def get_portfolio(current_user: User = Depends(is_authenticated)):
     # Portfolio shows finalized projects
-    return await Project.find(Project.status == ProjectStatus.FINALIZED).to_list()
+    projects = await Project.find(Project.status == ProjectStatus.FINALIZED).to_list()
+    
+    enriched_projects = []
+    for project in projects:
+        team_previews = []
+        if project.assigned_team:
+            for emp_id in project.assigned_team:
+                profile = await EmployeeProfile.get(emp_id)
+                if profile:
+                    team_previews.append({
+                        "id": str(profile.id),
+                        "full_name": profile.full_name,
+                        "avatar_url": profile.avatar_url
+                    })
+        
+        project_dict = serialize_doc(project)
+        project_dict["team_previews"] = team_previews
+        enriched_projects.append(project_dict)
+        
+    return enriched_projects
 
 @router.get("/{project_id}", response_model=dict)
 async def get_project(
@@ -60,20 +104,21 @@ async def get_project(
                     "skills": skills
                 })
     
-    return {
+    return serialize_doc({
         "project": project,
         "team": team
-    }
+    })
 
-@router.get("/my-projects", response_model=List[Project])
+@router.get("/my-projects", response_model=List[dict])
 async def get_my_projects(current_user: User = Depends(is_authenticated)):
     profile = await EmployeeProfile.find_one(EmployeeProfile.user_id == current_user.id)
     if not profile:
         return []
     # Find projects where profile.id is in the assigned_team list
-    return await Project.find({"assigned_team": profile.id}).to_list()
+    projects = await Project.find({"assigned_team": profile.id}).to_list()
+    return serialize_doc(projects)
 
-@router.put("/{project_id}", response_model=Project)
+@router.put("/{project_id}", response_model=dict)
 async def update_project(
     project_id: PydanticObjectId,
     update_data: ProjectUpdate,
@@ -90,7 +135,7 @@ async def update_project(
         project.updated_at = datetime.utcnow()
         await project.save()
     
-    return project
+    return serialize_doc(project)
 
 @router.delete("/{project_id}")
 async def delete_project(

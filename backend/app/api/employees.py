@@ -5,6 +5,7 @@ from app.models.employee import EmployeeProfile, Skill, ProfileUpdate, SkillCrea
 from app.api.deps import get_current_user, RoleChecker
 from beanie import PydanticObjectId
 from beanie.operators import In
+from app.core.serialization import serialize_doc
 from datetime import datetime
 
 router = APIRouter()
@@ -12,7 +13,7 @@ router = APIRouter()
 is_employee = RoleChecker([UserRole.EMPLOYEE])
 is_admin = RoleChecker([UserRole.ADMIN])
 
-@router.post("/profile", response_model=EmployeeProfile)
+@router.post("/profile", response_model=dict)
 async def create_profile(
     profile_data: ProfileCreate, 
     current_user: User = Depends(get_current_user)
@@ -31,7 +32,7 @@ async def create_profile(
         avatar_url=profile_data.avatar_url
     )
     await profile.insert()
-    return profile
+    return serialize_doc(profile)
 
 @router.put("/profile")
 async def update_profile_and_skills(
@@ -94,14 +95,14 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
     
     skills = await Skill.find(Skill.employee_id == profile.id).to_list()
     
-    return {
+    return serialize_doc({
         "user": {
             "email": current_user.email,
             "role": current_user.role
         },
         "profile": profile,
         "skills": skills
-    }
+    })
 @router.get("/", response_model=List[dict])
 async def list_all_employees(current_user: User = Depends(is_admin)):
     # Only list users with EMPLOYEE role
@@ -113,12 +114,20 @@ async def list_all_employees(current_user: User = Depends(is_admin)):
     
     for profile in profiles:
         skills = await Skill.find(Skill.employee_id == profile.id).to_list()
+        # Get count of active projects
+        from app.models.project import Project, ProjectStatus
+        project_count = await Project.find({
+            "assigned_team": profile.id,
+            "status": ProjectStatus.FINALIZED
+        }).count()
+        
         result.append({
             "profile": profile,
-            "skills": skills
+            "skills": skills,
+            "project_count": project_count
         })
         
-    return result
+    return serialize_doc(result)
 
 @router.get("/{employee_id}", response_model=dict)
 async def get_employee_details(
@@ -131,7 +140,7 @@ async def get_employee_details(
         
     skills = await Skill.find(Skill.employee_id == profile.id).to_list()
     
-    return {
+    return serialize_doc({
         "profile": profile,
         "skills": skills
-    }
+    })

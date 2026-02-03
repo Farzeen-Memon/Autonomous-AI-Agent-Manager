@@ -23,6 +23,7 @@ class ProjectTask(BaseModel):
     priority: str
     deadline: Optional[str] = "TBD"
     assigned_to: Optional[PydanticObjectId] = None
+    status: str = "backlog" # backlog, in_progress, completed
 
 
 class Project(Document):

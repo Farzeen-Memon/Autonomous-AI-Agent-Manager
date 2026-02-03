@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Logo from './Logo';
+import { useUser } from '../../context/UserContext';
 
 const Sidebar = ({ userRole = 'admin' }) => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { user, logout: contextLogout } = useUser();
 
     // Menu items based on role
     const adminMenuItems = [
@@ -25,7 +27,7 @@ const Sidebar = ({ userRole = 'admin' }) => {
     const menuItems = userRole === 'admin' ? adminMenuItems : employeeMenuItems;
 
     const handleLogout = () => {
-        // Clear any auth tokens/session data here
+        contextLogout();
         navigate('/login');
     };
 
@@ -33,8 +35,11 @@ const Sidebar = ({ userRole = 'admin' }) => {
         <aside className="sidebar">
             {/* Branding */}
             <div className="sidebar-header">
-                <div className="sidebar-brand">
+                <div className="sidebar-brand flex flex-col items-start">
                     <Logo className="sidebar-logo-container" textClassName="sidebar-title" />
+                    {userRole === 'admin' && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-[0.2em] font-bold ml-11">Admin Panel</p>
+                    )}
                 </div>
             </div>
 
@@ -72,15 +77,19 @@ const Sidebar = ({ userRole = 'admin' }) => {
             {/* Footer / User Profile */}
             <div className="sidebar-footer">
                 <div className="sidebar-user">
-                    <div className="sidebar-avatar">
-                        <span className="material-icons-outlined">person</span>
+                    <div className={`sidebar-avatar ${!user?.profile?.avatar_url ? 'bg-primary/20 flex items-center justify-center' : ''}`} style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden' }}>
+                        {user?.profile?.avatar_url ? (
+                            <img src={user.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                            <span className="material-icons-outlined" style={{ fontSize: '18px' }}>person</span>
+                        )}
                     </div>
                     <div className="sidebar-user-info">
                         <div className="sidebar-user-name">
-                            {userRole === 'admin' ? 'Admin User' : 'Employee'}
+                            {user?.profile?.full_name || (userRole === 'admin' ? 'Admin Node' : 'Employee')}
                         </div>
                         <div className="sidebar-user-email">
-                            {userRole === 'admin' ? 'admin@nexo.ai' : 'employee@nexo.ai'}
+                            {user?.role || (userRole === 'admin' ? 'Administrator' : 'Personnel')}
                         </div>
                     </div>
                 </div>

@@ -68,7 +68,7 @@ const AdminEmployeesPage = () => {
                                 </tr>
                             ) : (
                                 employees.map(emp => (
-                                    <tr key={emp.profile._id} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
+                                    <tr key={emp.profile.id || emp.profile._id} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary overflow-hidden">
@@ -80,7 +80,7 @@ const AdminEmployeesPage = () => {
                                                 </div>
                                                 <div>
                                                     <div className="font-medium text-[var(--text-primary)]">{emp.profile.full_name}</div>
-                                                    <div className="text-xs text-[var(--text-secondary)]">{emp.profile.user_id}</div>
+                                                    <div className="text-xs text-[var(--text-secondary)]">{emp.profile.specialization || "Engineer Node"}</div>
                                                 </div>
                                             </div>
                                         </td>
@@ -94,12 +94,15 @@ const AdminEmployeesPage = () => {
                                                 Operational
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-[var(--text-secondary)]">0</td>
+                                        <td className="px-6 py-4 text-[var(--text-secondary)] font-mono font-bold">
+                                            {emp.project_count || 0}
+                                        </td>
                                         <td className="px-6 py-4">
                                             <button className="text-[var(--text-primary)] hover:text-[var(--primary-base)] text-sm font-medium">Profile</button>
                                         </td>
                                     </tr>
                                 ))
+
                             )}
                         </tbody>
                     </table>

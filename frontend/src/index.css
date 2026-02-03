@@ -118,7 +118,7 @@
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
   width: 100%;
 }
@@ -129,8 +129,8 @@
 }
 
 .page-max-container {
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   width: 100%;
 }
 
@@ -333,10 +333,9 @@ p {
 
 .layout-content {
   flex: 1;
-  padding: 2rem;
-  max-width: 1400px;
+  padding: 1.5rem 2rem;
   width: 100%;
-  margin: 0 auto;
+  max-width: 100%;
 }
 
 /* Card System - 3D Depth */
