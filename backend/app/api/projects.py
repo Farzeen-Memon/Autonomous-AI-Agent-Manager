@@ -113,9 +113,17 @@ async def get_project(
 async def get_my_projects(current_user: User = Depends(is_authenticated)):
     profile = await EmployeeProfile.find_one(EmployeeProfile.user_id == current_user.id)
     if not profile:
+        print(f"DEBUG: No profile found for user {current_user.id}")
         return []
+    
     # Find projects where profile.id is in the assigned_team list
+    # Use ElemMatch or just direct match if it's a list
     projects = await Project.find({"assigned_team": profile.id}).to_list()
+    
+    print(f"DEBUG: User {current_user.email} (Profile ID: {profile.id}) matched {len(projects)} projects")
+    for p in projects:
+        print(f"DEBUG: Project {p.title} tasks counts: {len(p.tasks)}")
+        
     return serialize_doc(projects)
 
 @router.put("/{project_id}", response_model=dict)

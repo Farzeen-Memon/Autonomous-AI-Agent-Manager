@@ -108,9 +108,6 @@ const AdminDashboardPage = () => {
                             <span className="material-symbols-outlined text-base">add_circle</span>
                             <span>Create New Project</span>
                         </button>
-                        <button className="p-2.5 rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors text-slate-400">
-                            <span className="material-symbols-outlined">exit_to_app</span>
-                        </button>
                     </div>
                 </div>
 

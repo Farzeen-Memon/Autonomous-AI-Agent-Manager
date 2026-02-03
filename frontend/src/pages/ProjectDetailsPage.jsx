@@ -186,8 +186,8 @@ const ProjectDetailsPage = () => {
                                             <div className="flex items-center gap-4 min-w-[200px]">
                                                 <img
                                                     alt={`${member.profile.full_name} avatar`}
-                                                    className="w-10 h-10 rounded-full object-cover grayscale"
-                                                    src={member.profile.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuAaOZf7n7G1HMD5clSidK04vMqgB31u5IonIUlUo9FKjMHYO80Ztal1uJ7g1_jZtAqe7rEhytZ_pmfsx64eS3Mvr--vNDLVdgVm1YSo84VEfvfzFxfQL7rkf7R949hyiDDq7B9AJQgVZDonf9LROj1BxiIThwsmGRIO5PUVdd5pNyuR6RAO81YDtYHRErMpO8tTpqeM4jMuDFe_d-4WWR2cnWeLQGNNijksvaUk3zi1fejNMmGmCzYkzaruZju7Tbj3Xd-LJ41HijI"}
+                                                    className="w-10 h-10 rounded-full object-cover"
+                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
                                                 />
                                                 <div>
                                                     <p className="font-bold">{member.profile.full_name}</p>
@@ -219,6 +219,84 @@ const ProjectDetailsPage = () => {
                                     </div>
                                     <span className="text-sm font-bold text-slate-400 dark:text-[#948dce] group-hover:text-primary">Add Member</span>
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Tasks Section */}
+                        <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-border-dark overflow-hidden mt-8">
+                            <div className="px-8 py-6 border-b border-slate-100 dark:border-border-dark flex justify-between items-center">
+                                <h3 className="text-xl font-bold">Project Tasks</h3>
+                                <button
+                                    onClick={() => {
+                                        const title = prompt("Task Title:");
+                                        const description = prompt("Task Description:");
+                                        const assignedToName = prompt("Assign to (Employee Name):");
+
+                                        if (title && assignedToName) {
+                                            const employee = team.find(m => m.profile.full_name.toLowerCase().includes(assignedToName.toLowerCase()));
+                                            if (!employee) {
+                                                alert("Employee not found in project team.");
+                                                return;
+                                            }
+
+                                            const newTask = {
+                                                title,
+                                                description: description || "",
+                                                assigned_to: employee.profile._id || employee.profile.id,
+                                                status: 'backlog',
+                                                priority: 'medium',
+                                                estimated_hours: 2,
+                                                required_skills: [],
+                                                deadline: projectData.deadline || 'TBD'
+                                            };
+
+                                            const updatedTasks = [...(projectData.tasks || []), newTask];
+
+                                            fetch(`${API_BASE_URL}/projects/${projectId}`, {
+                                                method: 'PUT',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                                },
+                                                body: JSON.stringify({ tasks: updatedTasks })
+                                            }).then(() => window.location.reload());
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">add_task</span>
+                                    Add Task
+                                </button>
+                            </div>
+                            <div className="p-8 space-y-4">
+                                {projectData?.tasks?.length === 0 ? (
+                                    <p className="text-center text-slate-500 italic py-4">No tasks initialized for this project.</p>
+                                ) : (
+                                    projectData?.tasks?.map((task, idx) => {
+                                        const assignee = team.find(m => String(m.profile._id || m.profile.id) === String(task.assigned_to));
+                                        return (
+                                            <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-border-dark/50 rounded-xl border border-slate-100 dark:border-border-dark">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${task.status === 'completed' ? 'bg-green-500/20 text-green-500' : 'bg-primary/20 text-primary'}`}>
+                                                        <span className="material-symbols-outlined">{task.status === 'completed' ? 'check_circle' : 'pending'}</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-sm tracking-tight">{task.title}</p>
+                                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">
+                                                            Assignee: {assignee?.profile.full_name || 'Unassigned'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase ${task.priority === 'high' ? 'border-red-500/30 text-red-500 bg-red-500/5' : 'border-primary/30 text-primary bg-primary/5'}`}>
+                                                        {task.priority || 'Medium'}
+                                                    </span>
+                                                    <span className="text-xs font-mono text-slate-400">DUE: {task.deadline || 'TBD'}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
                     </div>

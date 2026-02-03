@@ -632,8 +632,8 @@ const NeuralMappingPage = () => {
                                         <div key={idx} className="flex flex-col items-center gap-2 group">
                                             <div className="relative">
                                                 <img
-                                                    src={member.profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.profile?.full_name}`}
-                                                    className="w-12 h-12 rounded-full border-2 border-primary/30 group-hover:border-primary transition-all"
+                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
+                                                    className="w-12 h-12 rounded-full border-2 border-primary/30 group-hover:border-primary transition-all object-cover"
                                                     alt={member.profile?.full_name}
                                                 />
                                                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-[#120F26] rounded-full"></div>
@@ -758,8 +758,8 @@ const NeuralMappingPage = () => {
                                         <div className="flex items-center gap-3">
                                             <div className="relative">
                                                 <img
-                                                    src={member.profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.profile?.full_name}`}
-                                                    className="w-10 h-10 rounded-full border border-white/10"
+                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
+                                                    className="w-10 h-10 rounded-full border border-white/10 object-cover"
                                                     alt={member.profile?.full_name}
                                                 />
                                                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-[#120F26] rounded-full"></div>

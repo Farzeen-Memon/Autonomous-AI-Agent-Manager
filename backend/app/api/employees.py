@@ -97,6 +97,7 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
     
     return serialize_doc({
         "user": {
+            "id": str(current_user.id),
             "email": current_user.email,
             "role": current_user.role
         },

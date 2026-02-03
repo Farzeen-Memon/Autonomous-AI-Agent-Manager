@@ -73,9 +73,17 @@ const AdminEmployeesPage = () => {
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary overflow-hidden">
                                                     {emp.profile.avatar_url ? (
-                                                        <img src={emp.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                        <img
+                                                            src={emp.profile.avatar_url.startsWith('http') ? emp.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${emp.profile.avatar_url.startsWith('/') ? emp.profile.avatar_url : '/' + emp.profile.avatar_url}`}
+                                                            alt=""
+                                                            className="w-full h-full object-cover"
+                                                        />
                                                     ) : (
-                                                        <span className="material-icons-outlined text-sm">person</span>
+                                                        <img
+                                                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(emp.profile.full_name)}&background=8B7CFF&color=fff`}
+                                                            alt=""
+                                                            className="w-full h-full object-cover"
+                                                        />
                                                     )}
                                                 </div>
                                                 <div>

@@ -1,17 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
+import { API_BASE_URL } from '../../utils/constants';
 
 const Settings = () => {
     const { theme, toggleTheme } = useTheme();
+    const { user } = useUser();
     const [profile, setProfile] = useState({
-        name: 'Admin User',
-        email: 'admin@nexo.ai',
-        role: 'System Administrator',
+        name: '',
+        email: '',
+        role: '',
         department: 'Engineering',
-        skills: 'React, Node.js, Python, AI/ML',
-        experience: '10+ years in Software Architecture',
+        skills: '',
+        experience: '',
         photoPreview: null
     });
+
+    useEffect(() => {
+        if (user) {
+            // Priority: user.skills, then user.profile.skills
+            const skillsSource = user.skills || user.profile?.skills || [];
+            setProfile(prev => ({
+                ...prev,
+                name: user.profile?.full_name || user.name || '',
+                email: user.email || '',
+                role: user.role || '',
+                specialization: user.profile?.specialization || '',
+                skills: Array.isArray(skillsSource)
+                    ? skillsSource.map(s => s.skill_name || s).join(', ')
+                    : (typeof skillsSource === 'string' ? skillsSource : ''),
+                photoPreview: user.profile?.avatar_url ? (user.profile.avatar_url.startsWith('http') || user.profile.avatar_url.startsWith('data:') ? user.profile.avatar_url : `${API_BASE_URL}${user.profile.avatar_url.startsWith('/') ? '' : '/'}${user.profile.avatar_url}`) : null
+            }));
+        }
+    }, [user]);
     const [notifications, setNotifications] = useState({
         emailNotifications: true,
         taskUpdates: true,

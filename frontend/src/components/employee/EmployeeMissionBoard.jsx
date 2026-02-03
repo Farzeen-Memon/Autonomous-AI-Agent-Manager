@@ -13,12 +13,20 @@ const EmployeeMissionBoard = () => {
         completed: []
     });
     const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', project_id: '' });
+    const [projects, setProjects] = useState([]);
 
     const getProfileImage = () => {
-        if (user?.profile?.profile_picture_url) {
-            return `${API_BASE_URL}${user.profile.profile_picture_url}`;
+        const avatar = user?.profile?.avatar_url;
+        if (typeof avatar === 'string' && avatar.length > 0) {
+            if (avatar.startsWith('http') || avatar.startsWith('data:')) return avatar;
+            // Ensure single slash between base URL and avatar path
+            const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+            const avatarPath = avatar.startsWith('/') ? avatar : `/${avatar}`;
+            return `${baseUrl}${avatarPath}`;
         }
-        return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=8B7CFF&color=fff`;
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.profile?.full_name || user?.name || 'User')}&background=8B7CFF&color=fff`;
     };
 
     const handleLogout = () => {
@@ -37,27 +45,50 @@ const EmployeeMissionBoard = () => {
             if (!user?.id) return;
 
             try {
-                // In a real app, you would fetch tasks assigned to this employee
-                // For now, we'll simulate some tasks or fetch from an endpoint if available
-                // const response = await fetch(`${API_BASE_URL}/api/tasks/employee/${user.id}`);
+                const response = await fetch(`${API_BASE_URL}/projects/my-projects`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
 
-                // Simulating data for the "Cyberpunk/Mission" aesthetic
-                setTimeout(() => {
-                    setTasks({
-                        backlog: [
-                            { id: 1, title: 'Fraud Detection Enhancement', description: 'Implement ML models to detect high-velocity transaction patterns.', priority: 'low', deadline: '2026-05-15' },
-                            { id: 2, title: 'OAuth2 Security Audit', description: 'Review all merchant dashboard authentication scopes and token lifecycles.', priority: 'medium', deadline: '2026-05-20' }
-                        ],
-                        inProgress: [
-                            { id: 3, title: 'Backend API Migration', description: 'Phase 2: Payment platform infrastructure revamp and load balancing.', priority: 'high', deadline: new Date().toISOString(), progress: 65 }
-                        ],
-                        completed: [
-                            { id: 4, title: 'Database Schema Update', description: 'PostgreSQL indexing for faster query response times in EU clusters.', completed_at: new Date(Date.now() - 86400000).toISOString() },
-                            { id: 5, title: 'Legacy Code Deprecation', description: 'Removed v1 auth endpoints.', completed_at: new Date(Date.now() - 172800000).toISOString() }
-                        ]
+                if (response.ok) {
+                    const data = await response.json();
+                    setProjects(data);
+                    const profileId = user.profile?.id || user.profile?._id;
+
+                    const backlog = [];
+                    const inProgress = [];
+                    const completed = [];
+
+                    data.forEach(project => {
+                        if (project.tasks && Array.isArray(project.tasks)) {
+                            project.tasks.forEach(task => {
+                                // Robust comparison: convert both to string for matching
+                                const isAssignedToMe = String(task.assigned_to) === String(profileId);
+
+                                if (isAssignedToMe) {
+                                    const taskWithMeta = {
+                                        ...task,
+                                        projectTitle: project.title,
+                                        projectId: project.id || project._id,
+                                        deadline: task.deadline && task.deadline !== 'TBD' ? task.deadline : project.deadline
+                                    };
+
+                                    if (task.status === 'completed') {
+                                        completed.push(taskWithMeta);
+                                    } else if (task.status === 'in_progress') {
+                                        inProgress.push(taskWithMeta);
+                                    } else {
+                                        backlog.push(taskWithMeta);
+                                    }
+                                }
+                            });
+                        }
                     });
+
+                    setTasks({ backlog, inProgress, completed });
                     setLoading(false);
-                }, 800);
+                }
             } catch (error) {
                 console.error('Error fetching tasks:', error);
                 setLoading(false);
@@ -65,7 +96,99 @@ const EmployeeMissionBoard = () => {
         };
 
         fetchTasks();
+        // Set up interval for "real-time" updates (every 10 seconds)
+        const interval = setInterval(fetchTasks, 3000);
+        return () => clearInterval(interval);
     }, [user]);
+
+    const handleAddTask = async (e) => {
+        e.preventDefault();
+        if (!newTask.project_id) {
+            alert("Please select a project for the task.");
+            return;
+        }
+
+        try {
+            // Find the project to update
+            const project = projects.find(p => p.id === newTask.project_id || p._id === newTask.project_id);
+            if (!project) return;
+
+            const profileId = user.profile?.id || user.profile?._id;
+            const updatedTasks = [...(project.tasks || []), {
+                title: newTask.title,
+                description: newTask.description,
+                priority: newTask.priority,
+                status: 'backlog',
+                assigned_to: profileId,
+                estimated_hours: 2,
+                required_skills: [],
+                deadline: 'TBD'
+            }];
+
+            const response = await fetch(`${API_BASE_URL}/projects/${newTask.project_id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ tasks: updatedTasks })
+            });
+
+            if (response.ok) {
+                setIsModalOpen(false);
+                setNewTask({ title: '', description: '', priority: 'medium', project_id: '' });
+                // Refresh tasks
+                window.location.reload(); // Quick way to refresh for now
+            }
+        } catch (error) {
+            console.error('Error adding task:', error);
+        }
+    };
+
+    const handleUpdateTaskStatus = async (task, newStatus) => {
+        try {
+            const projectId = task.projectId || task.project_id;
+            const project = projects.find(p => p.id === projectId || p._id === projectId);
+            if (!project) return;
+
+            const updatedTasks = project.tasks.map(t => {
+                if (t.title === task.title && t.description === task.description) {
+                    return { ...t, status: newStatus };
+                }
+                return t;
+            });
+
+            const response = await fetch(`${API_BASE_URL}/projects/${project.id || project._id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ tasks: updatedTasks })
+            });
+
+            if (response.ok) {
+                // Refresh local state without full reload
+                setTasks(prev => {
+                    const newTasks = { ...prev };
+                    // Remove from old status
+                    Object.keys(newTasks).forEach(status => {
+                        newTasks[status] = newTasks[status].filter(t => t.title !== task.title);
+                    });
+                    // Add to new status
+                    const internalStatus = newStatus === 'in_progress' ? 'inProgress' : newStatus;
+                    newTasks[internalStatus] = [...newTasks[internalStatus], { ...task, status: newStatus }];
+                    return newTasks;
+                });
+            }
+        } catch (error) {
+            console.error('Error updating task status:', error);
+        }
+    };
+
+    const totalTasks = tasks.backlog.length + tasks.inProgress.length + tasks.completed.length;
+    const efficiency = totalTasks > 0 ? Math.round((tasks.completed.length / totalTasks) * 100) : 0;
+    const dashOffset = 628.3 - (628.3 * efficiency) / 100;
 
     const getPriorityStyle = (priority) => {
         switch (priority?.toLowerCase()) {
@@ -109,14 +232,12 @@ const EmployeeMissionBoard = () => {
                 .task-card {
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     position: relative;
+                    border: 1px solid transparent !important;
                 }
                 .task-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-                    border-color: var(--electric-purple);
-                }
-                .glow-border {
-                    box-shadow: 0 0 20px rgba(139, 124, 255, 0.15);
+                    transform: translateY(-6px) scale(1.02);
+                    box-shadow: 0 15px 40px rgba(139, 124, 255, 0.4);
+                    border-color: var(--electric-purple) !important;
                 }
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 4px;
@@ -150,6 +271,21 @@ const EmployeeMissionBoard = () => {
                     70% { box-shadow: 0 0 0 6px rgba(139, 124, 255, 0); }
                     100% { box-shadow: 0 0 0 0 rgba(139, 124, 255, 0); }
                 }
+                .modal-backdrop {
+                    background: rgba(15, 12, 29, 0.8);
+                    backdrop-filter: blur(8px);
+                }
+                .input-cyber {
+                    background: rgba(255, 255, 255, 0.03);
+                    border: 1px solid rgba(139, 124, 255, 0.2);
+                    color: white;
+                    transition: all 0.3s ease;
+                }
+                .input-cyber:focus {
+                    border-color: var(--electric-purple);
+                    box-shadow: 0 0 10px rgba(139, 124, 255, 0.2);
+                    outline: none;
+                }
             `}</style>
 
             <div className="antialiased flex overflow-hidden h-screen bg-[var(--carbon-black)] text-[#E2E8F0] font-['Plus_Jakarta_Sans']">
@@ -157,11 +293,14 @@ const EmployeeMissionBoard = () => {
 
                 {/* Sidebar */}
                 <nav className="w-16 h-full flex flex-col items-center py-6 border-r border-white/5 bg-[var(--carbon-black)] z-50">
-                    <div className="w-10 h-10 bg-[var(--electric-purple)] rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(139,124,255,0.4)] mb-auto shrink-0 animate-pulse">
-                        <svg className="size-6" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M42.4379 44C42.4379 44 36.0744 33.9038 41.1692 24C46.8624 12.9336 42.2078 4 42.2078 4L7.01134 4C7.01134 4 11.6577 12.932 5.96912 23.9969C0.876273 33.9029 7.27094 44 7.27094 44L42.4379 44Z" fill="currentColor"></path>
-                        </svg>
-                    </div>
+                    <div className="w-10 h-10 mb-8 shrink-0"></div>
+
+                    <button
+                        onClick={() => navigate('/employee/settings')}
+                        className="w-10 h-10 flex items-center justify-center text-white/30 hover:text-white transition-colors mt-auto"
+                    >
+                        <span className="material-symbols-outlined">settings</span>
+                    </button>
                 </nav>
 
                 <div className="flex-1 flex flex-col min-w-0 relative">
@@ -176,9 +315,10 @@ const EmployeeMissionBoard = () => {
                     {/* Header */}
                     <header className="h-20 glass-header px-6 flex items-center justify-between z-40 shrink-0 gap-4">
                         <div className="flex items-center gap-8 min-w-0">
-                            <h1 className="font-display font-bold text-xl tracking-tight text-white uppercase whitespace-nowrap">
-                                Nexo <span className="text-white/40 font-light ml-2 text-xs tracking-[0.2em] hidden sm:inline">Mission Board</span>
-                            </h1>
+                            <div className="flex items-center gap-3">
+                                <Logo className="flex items-center gap-2" textClassName="font-display font-bold text-xl tracking-tight text-white uppercase whitespace-nowrap" />
+                                <span className="text-white/40 font-light text-xs tracking-[0.2em] hidden sm:inline uppercase border-l border-white/10 pl-3">Employee Dashboard</span>
+                            </div>
                             <div className="hidden lg:flex gap-8 items-center text-sm border-l border-white/10 pl-8">
                                 <div className="flex items-center gap-3">
                                     <div className="w-2 h-2 rounded-full bg-[var(--soft-cyan)] pulse-cyan"></div>
@@ -193,41 +333,49 @@ const EmployeeMissionBoard = () => {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-5 shrink-0">
+                        <div className="flex items-center gap-6 shrink-0 ml-4">
                             <div className="text-right hidden sm:block">
-                                <p className="text-xs font-bold text-white truncate max-w-[150px]">{user?.name || 'Loading...'}</p>
-                                <p className="text-[9px] text-[var(--soft-cyan)] uppercase tracking-widest truncate max-w-[150px]">
-                                    {user?.profile?.specialization || user?.profile?.role || 'Employee'}
+                                <p className="text-sm font-bold text-white tracking-tight leading-none mb-1">
+                                    {user?.profile?.full_name || user?.name || user?.email?.split('@')[0] || 'Mission Agent'}
+                                </p>
+                                <p className="text-[10px] text-[var(--soft-cyan)] uppercase tracking-[0.15em] font-bold opacity-80">
+                                    {user?.profile?.specialization || user?.role || 'Operative'}
                                 </p>
                             </div>
                             <div className="relative">
-                                <img
-                                    alt="Profile"
-                                    className="w-10 h-10 rounded-full border-2 border-[var(--electric-purple)]/30 p-0.5 object-cover"
-                                    src={getProfileImage()}
-                                />
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--soft-cyan)] border-2 border-[var(--carbon-black)] rounded-full"></div>
+                                <div className="w-12 h-12 rounded-xl border-2 border-[var(--electric-purple)]/40 p-0.5 overflow-hidden shadow-[0_0_15px_rgba(139,124,255,0.2)]">
+                                    <img
+                                        alt="Profile"
+                                        className="w-full h-full object-cover rounded-lg"
+                                        src={getProfileImage()}
+                                        onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.profile?.full_name || 'User')}&background=8B7CFF&color=fff`; }}
+                                    />
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[var(--soft-cyan)] border-2 border-[var(--carbon-black)] rounded-full shadow-[0_0_10px_rgba(93,230,255,0.5)]"></div>
                             </div>
                             <button
                                 onClick={handleLogout}
-                                className="w-10 h-10 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 rounded-full transition-all"
+                                className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all border border-white/5"
                                 title="Logout"
                             >
-                                <span className="material-symbols-outlined">power_settings_new</span>
+                                <span className="material-symbols-outlined text-xl">logout</span>
                             </button>
                         </div>
                     </header>
 
                     {/* Main Content */}
-                    <main className="flex flex-1 overflow-hidden relative p-6 pb-2 gap-8">
+                    <main className="flex flex-1 overflow-hidden relative p-8 px-20 pb-4 gap-12">
                         <div className="flex-1 overflow-hidden flex flex-col min-w-0">
                             <div className="flex justify-between items-end mb-8 flex-wrap gap-4 shrink-0">
                                 <div className="flex flex-col gap-1">
                                     <h2 className="text-2xl font-display font-bold text-white tracking-tight uppercase leading-none">Mission Control</h2>
                                     <span className="text-[10px] text-[var(--electric-purple)] font-mono uppercase tracking-[0.3em] opacity-60">System Protocol: Active</span>
                                 </div>
-                                <button className="bg-[var(--electric-purple)] hover:bg-[#7a6bed] text-white px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 transition-all transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,124,255,0.4)] z-10 whitespace-nowrap">
-                                    <span className="material-symbols-outlined text-sm">add_task</span> INITIALIZE NEW MISSION
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="bg-[var(--electric-purple)] hover:bg-[#7a6bed] text-white px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 transition-all transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,124,255,0.4)] z-10 whitespace-nowrap"
+                                >
+                                    <span className="material-symbols-outlined text-sm">add_task</span> ADD NEW TASK
                                 </button>
                             </div>
 
@@ -235,24 +383,32 @@ const EmployeeMissionBoard = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                                 {/* BACKLOG Column */}
                                 <div className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5">
-                                    <div className="flex items-center justify-between p-4 border-b border-white/5">
-                                        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50 flex items-center gap-3">
-                                            BACKLOG <span className="w-5 h-5 flex items-center justify-center bg-white/5 rounded text-[10px] font-mono text-white/80">{String(tasks.backlog.length).padStart(2, '0')}</span>
+                                    <div className="flex items-center justify-between p-5 border-b border-white/5">
+                                        <span className="text-[17px] font-bold uppercase tracking-[0.2em] text-white/50 flex items-center gap-3">
+                                            BACKLOG <span className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-[12px] font-mono text-white/80">{String(tasks.backlog.length).padStart(2, '0')}</span>
                                         </span>
-                                        <span className="material-symbols-outlined text-base text-white/20">terminal</span>
+                                        <span className="material-symbols-outlined text-xl text-white/20">terminal</span>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
                                         {tasks.backlog.map((task, index) => (
-                                            <div key={index} className="task-card bg-[var(--card-bg)] border border-[var(--electric-purple)]/20 p-5 rounded-2xl shadow-xl">
+                                            <div
+                                                key={index}
+                                                className="task-card bg-[var(--card-bg)] p-5 rounded-2xl shadow-xl cursor-pointer"
+                                                onClick={() => handleUpdateTaskStatus(task, 'in_progress')}
+                                            >
                                                 <div className="flex justify-between items-start mb-4">
-                                                    <span className={`text-[9px] px-2 py-1 font-bold rounded border uppercase tracking-wider ${getPriorityStyle(task.priority)}`}>
+                                                    <span className={`text-[12px] px-3 py-1.5 font-bold rounded border uppercase tracking-wider ${getPriorityStyle(task.priority)}`}>
                                                         {task.priority || 'Medium'} Priority
                                                     </span>
-                                                    <span className="material-symbols-outlined text-lg opacity-20 hover:opacity-100 cursor-grab">drag_handle</span>
+                                                    <span className="material-symbols-outlined text-xl opacity-20 hover:opacity-100 cursor-grab">drag_handle</span>
                                                 </div>
-                                                <h4 className="font-bold text-sm mb-2 text-white/90 break-words">{task.title}</h4>
-                                                <p className="text-xs text-white/50 leading-relaxed mb-4 line-clamp-2 break-words">{task.description}</p>
+                                                <h4 className="font-bold text-lg mb-2 text-white/90 break-words">{task.title}</h4>
+                                                <p className="text-sm text-white/50 leading-relaxed mb-4 line-clamp-2 break-words">{task.description}</p>
                                                 <div className="flex items-center gap-2 text-[10px] text-[var(--soft-cyan)]/50 font-mono border-t border-white/5 pt-3">
+                                                    <span className="material-symbols-outlined text-xs">work_outline</span>
+                                                    <span>PROJECT: {task.projectTitle}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] text-[var(--soft-cyan)]/50 font-mono mt-1">
                                                     <span className="material-symbols-outlined text-xs">event_upcoming</span>
                                                     <span>DUE: {formatDate(task.deadline)}</span>
                                                 </div>
@@ -261,25 +417,29 @@ const EmployeeMissionBoard = () => {
                                     </div>
                                 </div>
 
-                                {/* IN PROGRESS Column - Highlighted */}
-                                <div className="flex flex-col h-full min-h-0 bg-[var(--electric-purple)]/[0.02] rounded-2xl border border-[var(--electric-purple)]/30 ring-1 ring-[var(--electric-purple)]/10 shadow-[0_0_30px_rgba(139,124,255,0.05)]">
-                                    <div className="flex items-center justify-between p-4 border-b border-[var(--electric-purple)]/20">
-                                        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--electric-purple)] flex items-center gap-3">
-                                            IN PROGRESS <span className="w-5 h-5 flex items-center justify-center bg-[var(--electric-purple)]/20 rounded text-[10px] font-mono text-white">{String(tasks.inProgress.length).padStart(2, '0')}</span>
+                                {/* IN PROGRESS Column */}
+                                <div className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5">
+                                    <div className="flex items-center justify-between p-5 border-b border-white/5">
+                                        <span className="text-[17px] font-bold uppercase tracking-[0.2em] text-white/50 flex items-center gap-3">
+                                            IN PROGRESS <span className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-[12px] font-mono text-white/80">{String(tasks.inProgress.length).padStart(2, '0')}</span>
                                         </span>
-                                        <span className="material-symbols-outlined text-base text-[var(--electric-purple)] animate-pulse">sensors</span>
+                                        <span className="material-symbols-outlined text-xl text-white/20">terminal</span>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
                                         {tasks.inProgress.map((task, index) => (
-                                            <div key={index} className="task-card bg-[#1E1935] border border-[var(--electric-purple)] p-5 rounded-2xl shadow-[0_0_20px_rgba(139,124,255,0.15)] glow-border">
+                                            <div
+                                                key={index}
+                                                className="task-card bg-[var(--card-bg)] p-5 rounded-2xl shadow-xl cursor-pointer"
+                                                onClick={() => handleUpdateTaskStatus(task, 'completed')}
+                                            >
                                                 <div className="flex justify-between items-start mb-4">
-                                                    <span className={`text-[9px] px-2 py-1 font-bold rounded border uppercase tracking-wider ${getPriorityStyle(task.priority)}`}>
+                                                    <span className={`text-[12px] px-3 py-1.5 font-bold rounded border uppercase tracking-wider ${getPriorityStyle(task.priority)}`}>
                                                         {task.priority || 'High'} Priority
                                                     </span>
-                                                    <span className="material-symbols-outlined text-lg text-[var(--electric-purple)]">radar</span>
+                                                    <span className="material-symbols-outlined text-xl text-[var(--electric-purple)]">radar</span>
                                                 </div>
-                                                <h4 className="font-bold text-sm mb-2 text-white break-words">{task.title}</h4>
-                                                <p className="text-xs text-white/60 leading-relaxed mb-5 line-clamp-2 break-words">{task.description}</p>
+                                                <h4 className="font-bold text-lg mb-2 text-white break-words">{task.title}</h4>
+                                                <p className="text-sm text-white/60 leading-relaxed mb-5 line-clamp-2 break-words">{task.description}</p>
                                                 {task.progress !== undefined && (
                                                     <div className="space-y-2 mb-4">
                                                         <div className="flex justify-between text-[9px] font-mono text-[var(--electric-purple)]">
@@ -302,24 +462,28 @@ const EmployeeMissionBoard = () => {
 
                                 {/* COMPLETED Column */}
                                 <div className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5">
-                                    <div className="flex items-center justify-between p-4 border-b border-white/5">
-                                        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--soft-cyan)] flex items-center gap-3">
-                                            COMPLETED <span className="w-5 h-5 flex items-center justify-center bg-[var(--soft-cyan)]/20 rounded text-[10px] font-mono text-[var(--soft-cyan)]">{String(tasks.completed.length).padStart(2, '0')}</span>
+                                    <div className="flex items-center justify-between p-5 border-b border-white/5">
+                                        <span className="text-[17px] font-bold uppercase tracking-[0.2em] text-[var(--soft-cyan)] flex items-center gap-3">
+                                            COMPLETED <span className="w-6 h-6 flex items-center justify-center bg-[var(--soft-cyan)]/20 rounded text-[12px] font-mono text-[var(--soft-cyan)]">{String(tasks.completed.length).padStart(2, '0')}</span>
                                         </span>
-                                        <span className="material-symbols-outlined text-base text-[var(--soft-cyan)]">verified</span>
+                                        <span className="material-symbols-outlined text-xl text-[var(--soft-cyan)]">verified</span>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
                                         {tasks.completed.map((task, index) => (
-                                            <div key={index} className="task-card bg-[var(--card-bg)]/40 border border-[var(--soft-cyan)]/10 p-5 rounded-2xl opacity-70 hover:opacity-100 transition-opacity">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <span className="text-[9px] px-2 py-1 bg-[var(--soft-cyan)]/10 text-[var(--soft-cyan)] font-bold rounded border border-[var(--soft-cyan)]/20 uppercase tracking-wider">Archived</span>
+                                            <div
+                                                key={index}
+                                                className="task-card bg-[var(--card-bg)]/40 p-4 rounded-xl opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                                onClick={() => handleUpdateTaskStatus(task, 'backlog')}
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="text-[11px] px-2 py-0.5 bg-[var(--soft-cyan)]/10 text-[var(--soft-cyan)] font-bold rounded border border-[var(--soft-cyan)]/20 uppercase tracking-wider">Archived</span>
                                                     <span className="material-symbols-outlined text-[var(--soft-cyan)] text-sm">check_circle</span>
                                                 </div>
-                                                <h4 className="font-bold text-sm mb-2 text-white/80 break-words">{task.title}</h4>
-                                                <p className="text-xs text-white/40 leading-relaxed mb-4 line-clamp-2 break-words">{task.description}</p>
-                                                <div className="flex items-center gap-2 text-[10px] text-white/30 font-mono border-t border-white/5 pt-3">
-                                                    <span className="material-symbols-outlined text-xs">done_all</span>
-                                                    <span>COMPLETED: {formatDate(task.completed_at)}</span>
+                                                <h4 className="font-bold text-base mb-1 text-white/80 break-words">{task.title}</h4>
+                                                <p className="text-[13px] text-white/30 leading-tight mb-2 line-clamp-2 break-words">{task.description}</p>
+                                                <div className="flex items-center gap-2 text-[9px] text-white/20 font-mono border-t border-white/5 pt-2">
+                                                    <span className="material-symbols-outlined text-[10px]">done_all</span>
+                                                    <span>PROJECT: {task.projectTitle}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -329,63 +493,65 @@ const EmployeeMissionBoard = () => {
                         </div>
 
                         {/* Right Sidebar - Stats */}
-                        <aside className="w-[300px] flex flex-col gap-6 shrink-0 relative z-30 hidden xl:flex">
+                        <aside className="w-[450px] flex flex-col gap-6 shrink-0 relative z-30 hidden xl:flex">
                             <div className="h-full flex flex-col bg-[var(--card-bg)] rounded-3xl border border-white/5 overflow-hidden shadow-2xl relative">
                                 {/* Top accent line */}
                                 <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--soft-cyan)] to-transparent opacity-50"></div>
 
                                 <div className="p-8 flex flex-col h-full overflow-y-auto custom-scrollbar">
-                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/40 mb-8 border-b border-white/5 pb-4">Weekly Progress</h3>
+                                    <h3 className="text-[16px] font-bold uppercase tracking-[0.3em] text-white/40 mb-8 border-b border-white/5 pb-4">Weekly Progress</h3>
 
                                     {/* Circular Chart */}
-                                    <div className="relative flex items-center justify-center mb-10">
-                                        <svg className="w-48 h-48 transform -rotate-90">
-                                            <circle className="text-[#151125]" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeWidth="12"></circle>
-                                            <circle className="text-[var(--electric-purple)] drop-shadow-[0_0_15px_rgba(139,124,255,0.4)]" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" strokeDasharray="502.6" strokeDashoffset="50.2" strokeLinecap="round" strokeWidth="12"></circle>
+                                    <div className="relative flex items-center justify-center mb-10 w-64 h-64 mx-auto">
+                                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 256 256">
+                                            <circle className="text-[#151125]" cx="128" cy="128" fill="transparent" r="100" stroke="currentColor" strokeWidth="14"></circle>
+                                            <circle className="text-[var(--electric-purple)] drop-shadow-[0_0_20px_rgba(139,124,255,0.4)] transition-all duration-1000 ease-out" cx="128" cy="128" fill="transparent" r="100" stroke="currentColor" strokeDasharray="628.3" strokeDashoffset={dashOffset} strokeLinecap="round" strokeWidth="14"></circle>
                                         </svg>
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-4xl font-display font-bold text-white tracking-tighter drop-shadow-lg">90%</span>
-                                            <span className="text-[9px] uppercase text-[var(--soft-cyan)] font-bold tracking-[0.2em] mt-2">Efficiency Peak</span>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                            <div className="text-center group-hover:scale-110 transition-transform duration-500">
+                                                <span className="text-6xl font-display font-bold text-white tracking-tighter drop-shadow-[0_4px_15px_rgba(139,124,255,0.6)] leading-none block">{efficiency}%</span>
+                                                <span className="text-[14px] uppercase text-[var(--soft-cyan)] font-bold tracking-[0.3em] opacity-90 mt-2 block">Efficiency Peak</span>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4 mb-10">
-                                        <div className="bg-[#151125] p-4 rounded-xl border border-white/5 text-center group hover:border-[var(--electric-purple)]/30 transition-colors">
-                                            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-2">Missions</p>
-                                            <p className="text-2xl font-display font-medium text-white group-hover:scale-110 transition-transform">
+                                        <div className="bg-[#151125] p-6 rounded-xl border border-white/5 text-center group hover:border-[var(--electric-purple)]/50 transition-all hover:scale-105 cursor-pointer hover:shadow-[0_0_30px_rgba(139,124,255,0.3)]">
+                                            <p className="text-[15px] text-white/30 uppercase tracking-widest mb-2">Missions</p>
+                                            <p className="text-4xl font-display font-medium text-white group-hover:scale-110 transition-transform">
                                                 {tasks.completed.length + tasks.inProgress.length}
-                                                <span className="text-[12px] text-white/20 ml-1">/15</span>
+                                                <span className="text-[18px] text-white/20 ml-1">/15</span>
                                             </p>
                                         </div>
-                                        <div className="bg-[#151125] p-4 rounded-xl border border-white/5 text-center group hover:border-[var(--soft-cyan)]/30 transition-colors">
-                                            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-2">XP Earned</p>
-                                            <p className="text-2xl font-display font-medium text-[var(--soft-cyan)] group-hover:scale-110 transition-transform">2.4k</p>
+                                        <div className="bg-[#151125] p-6 rounded-xl border border-white/5 text-center group hover:border-[var(--soft-cyan)]/50 transition-all hover:scale-105 cursor-pointer hover:shadow-[0_0_30px_rgba(93,230,255,0.3)]">
+                                            <p className="text-[15px] text-white/30 uppercase tracking-widest mb-2">XP Earned</p>
+                                            <p className="text-4xl font-display font-medium text-[var(--soft-cyan)] group-hover:scale-110 transition-transform">2.4k</p>
                                         </div>
                                     </div>
 
                                     <div className="space-y-6 flex-1">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/40 mb-4 border-b border-white/5 pb-2">Momentum Metrics</h3>
-                                        <div className="space-y-5">
-                                            <div className="flex items-center justify-between group">
+                                        <h3 className="text-[16px] font-bold uppercase tracking-[0.3em] text-white/40 mb-4 border-b border-white/5 pb-2">Momentum Metrics</h3>
+                                        <div className="space-y-6">
+                                            <div className="flex items-center justify-between group hover:translate-x-3 transition-all cursor-pointer p-2 rounded-lg hover:bg-white/[0.02]">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="material-symbols-outlined text-orange-400 text-lg group-hover:scale-110 transition-transform">local_fire_department</span>
-                                                    <span className="text-xs text-white/70 font-medium">Focus Streak</span>
+                                                    <span className="material-symbols-outlined text-orange-400 text-2xl group-hover:scale-125 transition-transform duration-300">local_fire_department</span>
+                                                    <span className="text-[18px] text-white/70 font-medium tracking-tight">Focus Streak</span>
                                                 </div>
-                                                <span className="text-xs font-mono font-bold text-white">3 DAYS</span>
+                                                <span className="text-[18px] font-mono font-bold text-white group-hover:text-orange-400 transition-colors">3 DAYS</span>
                                             </div>
-                                            <div className="flex items-center justify-between group">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="material-symbols-outlined text-[var(--soft-cyan)] text-lg group-hover:scale-110 transition-transform">auto_graph</span>
-                                                    <span className="text-xs text-white/70 font-medium">Velocity Delta</span>
+                                            <div className="flex items-center justify-between group hover:translate-x-3 transition-all cursor-pointer p-2 rounded-lg hover:bg-white/[0.02]">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="material-symbols-outlined text-[var(--soft-cyan)] text-2xl group-hover:scale-125 transition-transform duration-300">auto_graph</span>
+                                                    <span className="text-[18px] text-white/70 font-medium tracking-tight">Velocity Delta</span>
                                                 </div>
-                                                <span className="text-xs font-mono font-bold text-[var(--soft-cyan)]">+12.4%</span>
+                                                <span className="text-[18px] font-mono font-bold text-[var(--soft-cyan)] shadow-[0_0_10px_rgba(93,230,255,0.3)]">+12.4%</span>
                                             </div>
-                                            <div className="flex items-center justify-between group">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="material-symbols-outlined text-[var(--electric-purple)] text-lg group-hover:scale-110 transition-transform">memory</span>
-                                                    <span className="text-xs text-white/70 font-medium">Neural Load</span>
+                                            <div className="flex items-center justify-between group hover:translate-x-3 transition-all cursor-pointer p-2 rounded-lg hover:bg-white/[0.02]">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="material-symbols-outlined text-[var(--electric-purple)] text-2xl group-hover:scale-125 transition-transform duration-300">memory</span>
+                                                    <span className="text-[18px] text-white/70 font-medium tracking-tight">Neural Load</span>
                                                 </div>
-                                                <span className="text-xs font-mono font-bold text-white">MID-RANGE</span>
+                                                <span className="text-[18px] font-mono font-bold text-white group-hover:text-[var(--electric-purple)] transition-colors">MID-RANGE</span>
                                             </div>
                                         </div>
                                     </div>
@@ -428,6 +594,92 @@ const EmployeeMissionBoard = () => {
                         </div>
                     </footer>
                 </div>
+
+                {/* Add Task Modal */}
+                {isModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-backdrop">
+                        <div className="bg-[#1B1730] border border-[var(--electric-purple)]/30 w-full max-w-md rounded-3xl p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-300 relative">
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="absolute top-6 right-6 text-white/20 hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-2xl">close</span>
+                            </button>
+
+                            <h3 className="text-xl font-bold text-white mb-6 uppercase tracking-tight flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[var(--electric-purple)]">add_circle</span>
+                                Initialize New Task
+                            </h3>
+                            <form onSubmit={handleAddTask} className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Project Assignment</label>
+                                    <select
+                                        className="w-full px-4 py-3 rounded-xl input-cyber text-sm"
+                                        value={newTask.project_id}
+                                        onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">Select Project</option>
+                                        {projects.map(p => {
+                                            const projectId = p.id || p._id;
+                                            return <option key={projectId} value={projectId}>{p.title}</option>
+                                        })}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Task Title</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-4 py-3 rounded-xl input-cyber text-sm"
+                                        placeholder="Enter task name..."
+                                        value={newTask.title}
+                                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Mission Parameters (Description)</label>
+                                    <textarea
+                                        className="w-full px-4 py-3 rounded-xl input-cyber text-sm h-24"
+                                        placeholder="Define task objectives..."
+                                        value={newTask.description}
+                                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Priority</label>
+                                        <select
+                                            className="w-full px-4 py-3 rounded-xl input-cyber text-sm"
+                                            value={newTask.priority}
+                                            onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                                        >
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-end">
+                                        <button
+                                            type="submit"
+                                            className="w-full bg-[var(--electric-purple)] hover:bg-[#7a6bed] text-white py-3 rounded-xl text-xs font-bold transition-all shadow-[0_0_20px_rgba(139,124,255,0.2)]"
+                                        >
+                                            DEPLOY TASK
+                                        </button>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="w-full text-[10px] uppercase tracking-widest text-white/20 hover:text-white/60 font-bold pt-4 transition-colors"
+                                >
+                                    Abort Mission (Cancel)
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

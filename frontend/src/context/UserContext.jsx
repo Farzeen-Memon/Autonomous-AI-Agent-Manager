@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { API_BASE_URL } from '../utils/constants';
 
-const UserContext = createContext();
+export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -23,7 +23,9 @@ export const UserProvider = ({ children }) => {
             if (response.ok) {
                 const data = await response.json();
                 setUser({
-                    ...data.user,
+                    id: data.user.id,
+                    email: data.user.email,
+                    role: data.user.role,
                     profile: data.profile,
                     skills: data.skills
                 });
