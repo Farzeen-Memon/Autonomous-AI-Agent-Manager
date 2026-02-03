@@ -26,4 +26,10 @@ def serialize_doc(doc):
         return serialize_doc(res)
     if hasattr(doc, "__dict__"):
         return serialize_doc(doc.__dict__)
+    
+    # Handle MappingProxyType (e.g. cls.__dict__)
+    import types
+    if isinstance(doc, types.MappingProxyType):
+        return serialize_doc(dict(doc))
+        
     return doc

@@ -86,12 +86,12 @@ const AppRoutes = () => {
                 } />
                 <Route path="/employee" element={
                     <ProtectedRoute allowedRoles={['employee']}>
-                        <EmployeeTaskBriefingPage />
+                        <EmployeePage />
                     </ProtectedRoute>
                 } />
                 <Route path="/employee/tasks" element={
                     <ProtectedRoute allowedRoles={['employee']}>
-                        <EmployeeTaskBriefingPage />
+                        <EmployeePage />
                     </ProtectedRoute>
                 } />
                 <Route path="/employee/profile" element={

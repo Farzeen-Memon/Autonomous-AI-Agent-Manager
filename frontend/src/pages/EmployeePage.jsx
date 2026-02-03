@@ -1,13 +1,8 @@
 import React from 'react';
-import EmployeeLayout from '../layouts/EmployeeLayout';
-import TaskDashboard from '../components/employee/TaskDashboard';
+import EmployeeMissionBoard from '../components/employee/EmployeeMissionBoard';
 
 const EmployeePage = () => {
-    return (
-        <EmployeeLayout>
-            <TaskDashboard />
-        </EmployeeLayout>
-    );
+    return <EmployeeMissionBoard />;
 };
 
 export default EmployeePage;

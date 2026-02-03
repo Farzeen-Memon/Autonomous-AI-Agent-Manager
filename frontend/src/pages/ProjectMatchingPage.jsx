@@ -318,8 +318,9 @@ const ProjectMatchingPage = () => {
             <header className="border-b border-[#352e6b] bg-[#0F0C1D]/50 backdrop-blur-md sticky top-0 z-50">
                 <div className="mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-8">
-                        <div className="flex items-center gap-3">
-                            <Logo />
+                        <div className="flex flex-col items-start -space-y-1">
+                            <Logo className="flex items-center gap-3" textClassName="text-xl font-bold tracking-tight uppercase text-white" />
+                            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold ml-11">Admin Panel</p>
                         </div>
                         <nav className="hidden md:flex items-center gap-6">
                             <a className="text-sm font-medium text-slate-400 hover:text-white transition-opacity" href="#" onClick={(e) => { e.preventDefault(); navigate('/admin/dashboard'); }}>Dashboard</a>
