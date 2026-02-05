@@ -8,6 +8,8 @@
     --text-secondary: #9a8bb6;
     --glass-border: rgba(255, 255, 255, 0.1);
     --success-glow: rgba(0, 255, 128, 0.4);
+    --neon-orange: #ff8c00;
+    --neon-orange-glow: rgba(255, 140, 0, 0.4);
 }
 
 .employee-dashboard {
@@ -281,7 +283,8 @@
 .mission-project-info {
     display: flex;
     gap: 1rem;
-    font-size: 0.8rem;
+    font-size: 1.05rem;
+    /* Increased by ~4px from 0.8rem */
     color: var(--text-secondary);
 }
 
@@ -303,6 +306,8 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    font-size: 1.15rem;
+    /* Increased from 0.9rem (~4px+) */
 }
 
 .mission-stat i {
@@ -383,6 +388,26 @@
 .board-tab.active {
     color: #fff;
     border-bottom-color: var(--accent-purple);
+}
+
+.board-tab.active.tab-in-progress {
+    color: var(--neon-orange);
+    text-shadow: 0 0 8px var(--neon-orange-glow), 0 0 15px var(--neon-orange-glow);
+    border-bottom-color: var(--neon-orange);
+}
+
+.column-header {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    letter-spacing: 1px;
+}
+
+.column-header.header-in-progress {
+    color: var(--neon-orange);
+    text-shadow: 0 0 5px var(--neon-orange-glow);
+    font-weight: 800;
 }
 
 .kanban-columns {

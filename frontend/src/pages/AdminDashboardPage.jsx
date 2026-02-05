@@ -60,24 +60,26 @@ const AdminDashboardPage = () => {
         }
     };
 
-    const inventory = [
-        {
-            name: "Legacy API Bridge",
-            status: "Active",
-            statusColor: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-            progress: 92,
-            members: 14,
-            icon: "terminal"
-        },
-        {
-            name: "OAuth Integration",
-            status: "Pending",
-            statusColor: "bg-primary/10 text-primary border-primary/20",
-            progress: 15,
-            members: 3,
-            icon: "security"
-        }
-    ];
+    const allTasks = projects.flatMap(p => p.tasks || []);
+    const totalMissions = allTasks.length;
+    const completedMissions = allTasks.filter(t => t.status === 'completed').length;
+    const inProgressMissions = allTasks.filter(t => t.status === 'in_progress').length;
+    const projectEfficiency = totalMissions > 0 ? Math.round((completedMissions / totalMissions) * 100) : 0;
+
+    const inventory = projects.slice(0, 5).map(p => {
+        const pTasks = p.tasks || [];
+        const pCompleted = pTasks.filter(t => t.status === 'completed').length;
+        const pEff = pTasks.length > 0 ? Math.round((pCompleted / pTasks.length) * 100) : 0;
+
+        return {
+            name: p.title,
+            status: p.status === 'finalized' ? "Active" : "Draft",
+            statusColor: p.status === 'finalized' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20",
+            progress: pEff,
+            members: p.assigned_team?.length || 0,
+            icon: p.status === 'finalized' ? "terminal" : "pending_actions"
+        };
+    });
 
     return (
         <AdminLayout title="Project Portfolio">
@@ -108,6 +110,53 @@ const AdminDashboardPage = () => {
                             <span className="material-symbols-outlined text-base">add_circle</span>
                             <span>Create New Project</span>
                         </button>
+                    </div>
+                </div>
+
+                {/* Meta-Data Report Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <div className="bg-[#110E23]/60 backdrop-blur-md border border-slate-800 p-6 rounded-2xl relative overflow-hidden group hover:border-primary/50 transition-all">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <span className="material-symbols-outlined text-6xl">account_tree</span>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Total Project Load</p>
+                        <h4 className="text-3xl font-black text-white leading-none mb-4">{projects.length} <span className="text-xs text-slate-600">Active Links</span></h4>
+                        <div className="flex items-center gap-2 text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                            <span className="material-symbols-outlined text-sm">trending_up</span>
+                            System Health: 100%
+                        </div>
+                    </div>
+
+                    <div className="bg-[#110E23]/60 backdrop-blur-md border border-slate-800 p-6 rounded-2xl relative overflow-hidden group hover:border-primary/50 transition-all">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <span className="material-symbols-outlined text-6xl">task_alt</span>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Completed Missions</p>
+                        <h4 className="text-3xl font-black text-emerald-500 leading-none mb-4">{completedMissions} <span className="text-xs text-slate-600">Tasks</span></h4>
+                        <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500" style={{ width: `${projectEfficiency}%` }}></div>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#110E23]/60 backdrop-blur-md border border-slate-800 p-6 rounded-2xl relative overflow-hidden group hover:border-primary/50 transition-all">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <span className="material-symbols-outlined text-6xl">bolt</span>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Operational Velocity</p>
+                        <h4 className="text-3xl font-black text-primary leading-none mb-4">{inProgressMissions} <span className="text-xs text-slate-600">In Motion</span></h4>
+                        <div className="flex items-center gap-2 text-[10px] text-primary font-bold uppercase tracking-wider">
+                            <span className="material-symbols-outlined text-sm animate-pulse">radar</span>
+                            Live Execution Trace
+                        </div>
+                    </div>
+
+                    <div className="bg-[#110E23]/60 backdrop-blur-md border border-slate-800 p-6 rounded-2xl relative overflow-hidden group hover:border-primary/50 transition-all">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <span className="material-symbols-outlined text-6xl">monitoring</span>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Neural Efficiency</p>
+                        <h4 className="text-4xl font-black text-white leading-none mb-2">{projectEfficiency}%</h4>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Aggregate Score</p>
                     </div>
                 </div>
 
@@ -289,11 +338,18 @@ const ProjectCard = ({ project, navigate, onDelete, isPortfolio = false, isDraft
             <div className="space-y-6">
                 <div>
                     <div className="flex justify-between items-center mb-2 text-[10px] font-black uppercase tracking-[0.2em]">
-                        <span className="text-slate-500">Resources</span>
-                        <span className="text-primary">{project.required_skills?.length || 0} Specializations</span>
+                        <span className="text-slate-500">Mission Progress</span>
+                        <span className="text-primary">{project.tasks?.length || 0} Tasks Assigned</span>
                     </div>
                     <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div className={`h-full ${isPortfolio ? 'bg-primary' : 'bg-primary/40'} glow-bar transition-all duration-1000`} style={{ width: isPortfolio ? '100%' : '45%' }}></div>
+                        {(() => {
+                            const pTasks = project.tasks || [];
+                            const pCompleted = pTasks.filter(t => t.status === 'completed').length;
+                            const pEff = pTasks.length > 0 ? Math.round((pCompleted / pTasks.length) * 100) : 0;
+                            return (
+                                <div className={`h-full ${pEff === 100 ? 'bg-emerald-500' : 'bg-primary'} glow-bar transition-all duration-1000`} style={{ width: `${pEff || (isPortfolio ? 100 : 0)}%` }}></div>
+                            );
+                        })()}
                     </div>
                 </div>
 

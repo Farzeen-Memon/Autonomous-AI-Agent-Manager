@@ -136,21 +136,40 @@ const TaskDashboard = () => {
 
     // DRAG AND DROP HANDLERS
     const onDragStart = (e, task) => {
+        const id = task.projectId?.$oid || task.projectId || '';
         e.dataTransfer.setData('taskTitle', task.title);
-        e.dataTransfer.setData('projectId', task.projectId);
+        e.dataTransfer.setData('projectId', String(id));
         e.target.classList.add('dragging');
+
+        // Optional: Custom drag image or ghost effect
+        e.dataTransfer.effectAllowed = 'move';
     };
 
     const onDragEnd = (e) => {
         e.target.classList.remove('dragging');
+        // Clean up any stray drag-over classes
+        document.querySelectorAll('.kanban-col').forEach(col => {
+            col.classList.remove('drag-over');
+        });
     };
 
     const onDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!e.currentTarget.classList.contains('drag-over')) {
+            e.currentTarget.classList.add('drag-over');
+        }
+    };
+
+    const onDragEnter = (e) => {
         e.preventDefault();
         e.currentTarget.classList.add('drag-over');
     };
 
     const onDragLeave = (e) => {
+        // Only remove if we're actually leaving the column element, 
+        // not just moving over children
+        if (e.currentTarget.contains(e.relatedTarget)) return;
         e.currentTarget.classList.remove('drag-over');
     };
 
@@ -159,30 +178,48 @@ const TaskDashboard = () => {
         e.currentTarget.classList.remove('drag-over');
 
         const taskTitle = e.dataTransfer.getData('taskTitle');
-        const projectId = e.dataTransfer.getData('projectId');
+        const projectIdFromData = e.dataTransfer.getData('projectId');
 
-        if (!taskTitle || !projectId) return;
+        console.log(`🎯 Drop detected: "${taskTitle}" -> ${newStatus} (Project: ${projectIdFromData})`);
+
+        if (!taskTitle || !projectIdFromData) {
+            console.error('❌ Missing drag data', { taskTitle, projectIdFromData });
+            return;
+        }
 
         // Optimistic UI update
+        let found = false;
         const updatedTasks = tasks.map(t => {
-            if (t.title === taskTitle && (t.projectId?.$oid || t.projectId) === (projectId?.$oid || projectId)) {
+            const tProjId = String(t.projectId?.$oid || t.projectId || '');
+            if (t.title === taskTitle && tProjId === projectIdFromData) {
+                found = true;
                 return { ...t, status: newStatus };
             }
             return t;
         });
-        setTasks(updatedTasks);
+
+        if (!found) {
+            console.warn('⚠️ Could not find task in state to update', { taskTitle, projectIdFromData });
+            // Try matching by title only as fallback if project IDs are messy
+            const fallbackTasks = tasks.map(t => {
+                if (t.title === taskTitle) return { ...t, status: newStatus };
+                return t;
+            });
+            setTasks(fallbackTasks);
+        } else {
+            setTasks(updatedTasks);
+        }
 
         // If it's mock data, we don't need to call the backend
-        const projectIdStr = String(projectId?.$oid || projectId || '');
-        if (usingMockData || projectIdStr.startsWith('mock-')) {
-            console.log('Mock task status updated to:', newStatus);
+        if (usingMockData || projectIdFromData.startsWith('mock-')) {
+            console.log('✅ Mock task status updated locally');
             return;
         }
 
         // Call backend to update status
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/status`, {
+            const response = await fetch(`${API_BASE_URL}/projects/${projectIdFromData}/tasks/status`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -195,13 +232,13 @@ const TaskDashboard = () => {
             });
 
             if (!response.ok) {
-                console.error('Failed to update task status in backend');
-                // Optional: Revert UI if needed
+                const errData = await response.json();
+                console.error('❌ Backend update failed:', errData);
             } else {
-                console.log(`Successfully updated "${taskTitle}" to ${newStatus}`);
+                console.log(`✅ Backend updated: "${taskTitle}" is now ${newStatus}`);
             }
         } catch (error) {
-            console.error('Error updating task status:', error);
+            console.error('❌ Error updating task status:', error);
         }
     };
 
@@ -359,7 +396,7 @@ const TaskDashboard = () => {
                                 <span className={`board-tab ${activeTab === 'backlog' ? 'active' : ''}`} onClick={() => setActiveTab('backlog')}>
                                     <i className="fas fa-list-ul mr-2 text-[10px]"></i> Backlog
                                 </span>
-                                <span className={`board-tab ${activeTab === 'in_progress' ? 'active' : ''}`} onClick={() => setActiveTab('in_progress')}>
+                                <span className={`board-tab ${activeTab === 'in_progress' ? 'active tab-in-progress' : ''}`} onClick={() => setActiveTab('in_progress')}>
                                     <i className="fas fa-spinner fa-spin mr-2 text-[10px]"></i> In Progress
                                 </span>
                                 <span className={`board-tab ${activeTab === 'completed' ? 'active' : ''}`} onClick={() => setActiveTab('completed')}>
@@ -373,6 +410,7 @@ const TaskDashboard = () => {
                             <div
                                 className="kanban-col drop-zone"
                                 onDragOver={onDragOver}
+                                onDragEnter={onDragEnter}
                                 onDragLeave={onDragLeave}
                                 onDrop={(e) => onDrop(e, 'backlog')}
                             >
@@ -381,14 +419,17 @@ const TaskDashboard = () => {
                                     <span className="opacity-30">{getTasksByStatus('backlog').length}</span>
                                 </div>
                                 <div className="task-list">
-                                    {getTasksByStatus('backlog').map((t, i) => (
-                                        <TaskCard
-                                            key={`${t.projectId}-${t.title}-${i}`}
-                                            task={t}
-                                            onDragStart={(e) => onDragStart(e, t)}
-                                            onDragEnd={onDragEnd}
-                                        />
-                                    ))}
+                                    {getTasksByStatus('backlog').map((t, i) => {
+                                        const tId = String(t.projectId?.$oid || t.projectId || '');
+                                        return (
+                                            <TaskCard
+                                                key={`${tId}-${t.title}-${i}`}
+                                                task={t}
+                                                onDragStart={(e) => onDragStart(e, t)}
+                                                onDragEnd={onDragEnd}
+                                            />
+                                        );
+                                    })}
                                     {getTasksByStatus('backlog').length === 0 && (
                                         <div className="text-[10px] text-center opacity-30 py-8 border border-dashed border-white/10 rounded-xl">Empty Backlog</div>
                                     )}
@@ -398,22 +439,26 @@ const TaskDashboard = () => {
                             <div
                                 className="kanban-col drop-zone"
                                 onDragOver={onDragOver}
+                                onDragEnter={onDragEnter}
                                 onDragLeave={onDragLeave}
                                 onDrop={(e) => onDrop(e, 'in_progress')}
                             >
-                                <div className="column-header mb-4 flex items-center justify-between">
+                                <div className="column-header header-in-progress mb-4 flex items-center justify-between">
                                     <span>In Progress</span>
                                     <span className="opacity-30">{getTasksByStatus('in_progress').length}</span>
                                 </div>
                                 <div className="task-list">
-                                    {getTasksByStatus('in_progress').map((t, i) => (
-                                        <TaskCard
-                                            key={`${t.projectId}-${t.title}-${i}`}
-                                            task={t}
-                                            onDragStart={(e) => onDragStart(e, t)}
-                                            onDragEnd={onDragEnd}
-                                        />
-                                    ))}
+                                    {getTasksByStatus('in_progress').map((t, i) => {
+                                        const tId = String(t.projectId?.$oid || t.projectId || '');
+                                        return (
+                                            <TaskCard
+                                                key={`${tId}-${t.title}-${i}`}
+                                                task={t}
+                                                onDragStart={(e) => onDragStart(e, t)}
+                                                onDragEnd={onDragEnd}
+                                            />
+                                        );
+                                    })}
                                     {getTasksByStatus('in_progress').length === 0 && (
                                         <div className="text-[10px] text-center opacity-30 py-8 border border-dashed border-white/10 rounded-xl">No tasks in progress</div>
                                     )}
@@ -423,6 +468,7 @@ const TaskDashboard = () => {
                             <div
                                 className="kanban-col drop-zone"
                                 onDragOver={onDragOver}
+                                onDragEnter={onDragEnter}
                                 onDragLeave={onDragLeave}
                                 onDrop={(e) => onDrop(e, 'completed')}
                             >
@@ -431,14 +477,17 @@ const TaskDashboard = () => {
                                     <span className="opacity-30">{getTasksByStatus('completed').length}</span>
                                 </div>
                                 <div className="task-list">
-                                    {getTasksByStatus('completed').map((t, i) => (
-                                        <TaskCard
-                                            key={`${t.projectId}-${t.title}-${i}`}
-                                            task={t}
-                                            onDragStart={(e) => onDragStart(e, t)}
-                                            onDragEnd={onDragEnd}
-                                        />
-                                    ))}
+                                    {getTasksByStatus('completed').map((t, i) => {
+                                        const tId = String(t.projectId?.$oid || t.projectId || '');
+                                        return (
+                                            <TaskCard
+                                                key={`${tId}-${t.title}-${i}`}
+                                                task={t}
+                                                onDragStart={(e) => onDragStart(e, t)}
+                                                onDragEnd={onDragEnd}
+                                            />
+                                        );
+                                    })}
                                     {getTasksByStatus('completed').length === 0 && (
                                         <div className="text-[10px] text-center opacity-30 py-8 border border-dashed border-white/10 rounded-xl">No completed tasks</div>
                                     )}

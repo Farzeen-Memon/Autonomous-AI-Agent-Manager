@@ -165,13 +165,16 @@ const EmployeeMissionBoard = () => {
                 return t;
             });
 
-            const response = await fetch(`${API_BASE_URL}/projects/${project.id || project._id}`, {
+            const response = await fetch(`${API_BASE_URL}/projects/${project.id || project._id}/tasks/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify({ tasks: updatedTasks })
+                body: JSON.stringify({
+                    task_title: task.title,
+                    status: newStatus
+                })
             });
 
             if (response.ok) {
@@ -191,6 +194,49 @@ const EmployeeMissionBoard = () => {
         } catch (error) {
             console.error('Error updating task status:', error);
         }
+    };
+
+    // DRAG AND DROP HANDLERS
+    const onDragStart = (e, task) => {
+        e.dataTransfer.setData('task', JSON.stringify(task));
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const onDragEnd = (e) => {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.kanban-column').forEach(col => {
+            col.classList.remove('drag-over');
+        });
+    };
+
+    const onDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const onDragEnter = (e) => {
+        e.preventDefault();
+        e.currentTarget.classList.add('drag-over');
+    };
+
+    const onDragLeave = (e) => {
+        if (e.currentTarget.contains(e.relatedTarget)) return;
+        e.currentTarget.classList.remove('drag-over');
+    };
+
+    const onDrop = async (e, newStatus) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+
+        const taskData = e.dataTransfer.getData('task');
+        if (!taskData) return;
+
+        const task = JSON.parse(taskData);
+        if (task.status === newStatus) return;
+
+        console.log(`🎯 Drop detected: "${task.title}" -> ${newStatus}`);
+        await handleUpdateTaskStatus(task, newStatus);
     };
 
     const myBacklog = tasks.backlog.filter(t => t.isMyTask !== false);
@@ -222,6 +268,7 @@ const EmployeeMissionBoard = () => {
                     --card-bg: #1B1730;
                     --electric-purple: #8B7CFF;
                     --soft-cyan: #5DE6FF;
+                    --neon-orange: #FF9E00;
                     --obsidian: rgba(27, 23, 48, 0.9);
                 }
                 .bg-grid {
@@ -297,6 +344,16 @@ const EmployeeMissionBoard = () => {
                     box-shadow: 0 0 10px rgba(139, 124, 255, 0.2);
                     outline: none;
                 }
+                .kanban-column.drag-over {
+                    background: rgba(139, 124, 255, 0.05) !important;
+                    border-color: var(--electric-purple) !important;
+                    box-shadow: inset 0 0 20px rgba(139, 124, 255, 0.1);
+                }
+                .task-card.dragging {
+                    opacity: 0.4;
+                    transform: scale(0.95);
+                    border-color: var(--electric-purple) !important;
+                }
             `}</style>
 
             <div className="antialiased flex overflow-hidden h-screen bg-[var(--carbon-black)] text-[#E2E8F0] font-['Plus_Jakarta_Sans']">
@@ -354,10 +411,10 @@ const EmployeeMissionBoard = () => {
                                 </p>
                             </div>
                             <div className="relative">
-                                <div className="w-12 h-12 rounded-xl border-2 border-[var(--electric-purple)]/40 p-0.5 overflow-hidden shadow-[0_0_15px_rgba(139,124,255,0.2)]">
+                                <div className="w-12 h-12 rounded-full border-2 border-[var(--electric-purple)]/40 p-0.5 overflow-hidden shadow-[0_0_15px_rgba(139,124,255,0.2)]">
                                     <img
                                         alt="Profile"
-                                        className="w-full h-full object-cover rounded-lg"
+                                        className="w-full h-full object-cover rounded-full"
                                         src={getProfileImage()}
                                         onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.profile?.full_name || 'User')}&background=8B7CFF&color=fff`; }}
                                     />
@@ -462,7 +519,13 @@ const EmployeeMissionBoard = () => {
                             {/* Kanban Columns - Full Height Filling */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                                 {/* BACKLOG Column */}
-                                <div className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5">
+                                <div
+                                    className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5 kanban-column"
+                                    onDragOver={onDragOver}
+                                    onDragEnter={onDragEnter}
+                                    onDragLeave={onDragLeave}
+                                    onDrop={(e) => onDrop(e, 'backlog')}
+                                >
                                     <div className="flex items-center justify-between p-5 border-b border-white/5">
                                         <span className="text-[17px] font-bold uppercase tracking-[0.2em] text-white/50 flex items-center gap-3">
                                             BACKLOG <span className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-[12px] font-mono text-white/80">{String(tasks.backlog.length).padStart(2, '0')}</span>
@@ -473,7 +536,10 @@ const EmployeeMissionBoard = () => {
                                         {tasks.backlog.map((task, index) => (
                                             <div
                                                 key={index}
-                                                className="task-card bg-[var(--card-bg)] p-5 rounded-2xl shadow-xl cursor-pointer"
+                                                className="task-card bg-[var(--card-bg)] p-5 rounded-2xl shadow-xl cursor-grab active:cursor-grabbing"
+                                                draggable="true"
+                                                onDragStart={(e) => onDragStart(e, task)}
+                                                onDragEnd={onDragEnd}
                                                 onClick={() => handleUpdateTaskStatus(task, 'in_progress')}
                                             >
                                                 <div className="flex justify-between items-start mb-4">
@@ -484,13 +550,13 @@ const EmployeeMissionBoard = () => {
                                                 </div>
                                                 <h4 className="font-bold text-lg mb-2 text-white/90 break-words">{task.title}</h4>
                                                 <p className="text-sm text-white/50 leading-relaxed mb-4 line-clamp-2 break-words">{task.description}</p>
-                                                <div className="flex items-center gap-2 text-[10px] text-[var(--soft-cyan)]/50 font-mono border-t border-white/5 pt-3">
-                                                    <span className="material-symbols-outlined text-xs">work_outline</span>
-                                                    <span>PROJECT: {task.projectTitle}</span>
+                                                <div className="flex items-center gap-2 text-[13px] text-[var(--soft-cyan)]/70 font-mono border-t border-white/5 pt-3">
+                                                    <span className="material-symbols-outlined text-sm">work_outline</span>
+                                                    <span className="font-bold">PROJECT: {task.projectTitle}</span>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-[var(--soft-cyan)]/50 font-mono mt-1">
-                                                    <span className="material-symbols-outlined text-xs">event_upcoming</span>
-                                                    <span>DUE: {formatDate(task.deadline)}</span>
+                                                <div className="flex items-center gap-2 text-[13px] text-[var(--soft-cyan)]/70 font-mono mt-1">
+                                                    <span className="material-symbols-outlined text-sm">event_upcoming</span>
+                                                    <span className="font-bold">DUE: {formatDate(task.deadline)}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -498,18 +564,27 @@ const EmployeeMissionBoard = () => {
                                 </div>
 
                                 {/* IN PROGRESS Column */}
-                                <div className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5">
+                                <div
+                                    className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5 kanban-column"
+                                    onDragOver={onDragOver}
+                                    onDragEnter={onDragEnter}
+                                    onDragLeave={onDragLeave}
+                                    onDrop={(e) => onDrop(e, 'in_progress')}
+                                >
                                     <div className="flex items-center justify-between p-5 border-b border-white/5">
-                                        <span className="text-[17px] font-bold uppercase tracking-[0.2em] text-white/50 flex items-center gap-3">
-                                            IN PROGRESS <span className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-[12px] font-mono text-white/80">{String(tasks.inProgress.length).padStart(2, '0')}</span>
+                                        <span className="text-[17px] font-bold uppercase tracking-[0.2em] text-[var(--neon-orange)] flex items-center gap-3" style={{ textShadow: '0 0 10px rgba(255, 158, 0, 0.3)' }}>
+                                            IN PROGRESS <span className="w-6 h-6 flex items-center justify-center bg-[var(--neon-orange)]/20 rounded text-[12px] font-mono text-[var(--neon-orange)]">{String(tasks.inProgress.length).padStart(2, '0')}</span>
                                         </span>
-                                        <span className="material-symbols-outlined text-xl text-white/20">terminal</span>
+                                        <span className="material-symbols-outlined text-xl text-[var(--neon-orange)] opacity-80">terminal</span>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
                                         {tasks.inProgress.map((task, index) => (
                                             <div
                                                 key={index}
-                                                className="task-card bg-[var(--card-bg)] p-5 rounded-2xl shadow-xl cursor-pointer"
+                                                className="task-card bg-[var(--card-bg)] p-5 rounded-2xl shadow-xl cursor-grab active:cursor-grabbing"
+                                                draggable="true"
+                                                onDragStart={(e) => onDragStart(e, task)}
+                                                onDragEnd={onDragEnd}
                                                 onClick={() => handleUpdateTaskStatus(task, 'completed')}
                                             >
                                                 <div className="flex justify-between items-start mb-4">
@@ -522,18 +597,18 @@ const EmployeeMissionBoard = () => {
                                                 <p className="text-sm text-white/60 leading-relaxed mb-5 line-clamp-2 break-words">{task.description}</p>
                                                 {task.progress !== undefined && (
                                                     <div className="space-y-2 mb-4">
-                                                        <div className="flex justify-between text-[9px] font-mono text-[var(--electric-purple)]">
+                                                        <div className="flex justify-between text-[9px] font-mono text-[var(--neon-orange)]">
                                                             <span>PROGRESS</span>
                                                             <span>{task.progress}%</span>
                                                         </div>
                                                         <div className="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                                                            <div className="bg-[var(--electric-purple)] h-full shadow-[0_0_10px_rgba(139,124,255,1)]" style={{ width: `${task.progress}%` }}></div>
+                                                            <div className="bg-[var(--neon-orange)] h-full shadow-[0_0_10px_rgba(255,158,0,0.6)]" style={{ width: `${task.progress}%` }}></div>
                                                         </div>
                                                     </div>
                                                 )}
-                                                <div className="flex items-center gap-2 text-[10px] text-[var(--electric-purple)] font-mono border-t border-[var(--electric-purple)]/20 pt-3">
-                                                    <span className="material-symbols-outlined text-xs">warning</span>
-                                                    <span>DUE: {formatDate(task.deadline)}</span>
+                                                <div className="flex items-center gap-2 text-[13px] text-[var(--neon-orange)]/90 font-mono border-t border-[var(--neon-orange)]/20 pt-3">
+                                                    <span className="material-symbols-outlined text-sm">warning</span>
+                                                    <span className="font-bold">DUE: {formatDate(task.deadline)}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -541,7 +616,13 @@ const EmployeeMissionBoard = () => {
                                 </div>
 
                                 {/* COMPLETED Column */}
-                                <div className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5">
+                                <div
+                                    className="flex flex-col h-full min-h-0 bg-white/[0.01] rounded-2xl border border-white/5 kanban-column"
+                                    onDragOver={onDragOver}
+                                    onDragEnter={onDragEnter}
+                                    onDragLeave={onDragLeave}
+                                    onDrop={(e) => onDrop(e, 'completed')}
+                                >
                                     <div className="flex items-center justify-between p-5 border-b border-white/5">
                                         <span className="text-[17px] font-bold uppercase tracking-[0.2em] text-[var(--soft-cyan)] flex items-center gap-3">
                                             COMPLETED <span className="w-6 h-6 flex items-center justify-center bg-[var(--soft-cyan)]/20 rounded text-[12px] font-mono text-[var(--soft-cyan)]">{String(tasks.completed.length).padStart(2, '0')}</span>
@@ -552,7 +633,10 @@ const EmployeeMissionBoard = () => {
                                         {tasks.completed.map((task, index) => (
                                             <div
                                                 key={index}
-                                                className="task-card bg-[var(--card-bg)]/40 p-4 rounded-xl opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                                className="task-card bg-[var(--card-bg)]/40 p-4 rounded-xl opacity-70 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                                                draggable="true"
+                                                onDragStart={(e) => onDragStart(e, task)}
+                                                onDragEnd={onDragEnd}
                                                 onClick={() => handleUpdateTaskStatus(task, 'backlog')}
                                             >
                                                 <div className="flex justify-between items-start mb-2">
@@ -561,9 +645,9 @@ const EmployeeMissionBoard = () => {
                                                 </div>
                                                 <h4 className="font-bold text-base mb-1 text-white/80 break-words">{task.title}</h4>
                                                 <p className="text-[13px] text-white/30 leading-tight mb-2 line-clamp-2 break-words">{task.description}</p>
-                                                <div className="flex items-center gap-2 text-[9px] text-white/20 font-mono border-t border-white/5 pt-2">
-                                                    <span className="material-symbols-outlined text-[10px]">done_all</span>
-                                                    <span>PROJECT: {task.projectTitle}</span>
+                                                <div className="flex items-center gap-2 text-[12px] text-white/40 font-mono border-t border-white/5 pt-2">
+                                                    <span className="material-symbols-outlined text-sm">done_all</span>
+                                                    <span className="font-bold">PROJECT: {task.projectTitle}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -636,14 +720,6 @@ const EmployeeMissionBoard = () => {
                                         </div>
                                     </div>
 
-                                    <div className="mt-8 p-5 bg-[var(--electric-purple)]/[0.03] rounded-2xl border border-[var(--electric-purple)]/20 relative overflow-hidden group hover:bg-[var(--electric-purple)]/[0.05] transition-colors">
-                                        <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--electric-purple)]/10 blur-3xl rounded-full"></div>
-                                        <div className="flex items-center gap-2 mb-3 text-[var(--soft-cyan)]">
-                                            <span className="material-symbols-outlined text-base">lightbulb</span>
-                                            <span className="text-[9px] font-bold uppercase tracking-[0.2em]">System Optimization</span>
-                                        </div>
-                                        <p className="text-[11px] leading-relaxed text-white/60">Complete 2 more high-priority tasks by Friday to achieve your efficiency bonus.</p>
-                                    </div>
                                 </div>
                             </div>
                         </aside>
