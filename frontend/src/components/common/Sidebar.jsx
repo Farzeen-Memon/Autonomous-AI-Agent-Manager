@@ -11,7 +11,6 @@ const Sidebar = ({ userRole = 'admin' }) => {
 
     // Menu items based on role
     const adminMenuItems = [
-        { name: 'Dashboard', path: '/admin', icon: 'dashboard' },
         { name: 'Decisions', path: '/admin/decisions', icon: 'psychology' },
         { name: 'Employees', path: '/admin/employees', icon: 'people' },
         { name: 'Profile', path: '/admin/profile', icon: 'person' },

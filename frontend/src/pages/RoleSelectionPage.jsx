@@ -96,7 +96,7 @@ const RoleSelectionPage = () => {
                     </div>
                 </main>
                 <footer className="p-6 text-center text-white/10 text-sm">
-                    © 2024 Nexo Autonomous Systems. All rights reserved. Neural interface v2.0.4-delta.
+                    © Nexo 2026
                 </footer>
             </div>
         </div>

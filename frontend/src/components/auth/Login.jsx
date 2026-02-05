@@ -139,8 +139,8 @@ const Login = () => {
                     Don't have an account? <a href="/signup" className="signup-link">Sign up</a>
                 </p>
 
-                <div className="footer-stats-row">
-                    <span>v4.0.2 Stable</span>
+                <div className="footer-stats-row text-[10px] opacity-30">
+                    <span>© Nexo 2026</span>
                     <span>Auth Service: Operational</span>
                 </div>
             </form>

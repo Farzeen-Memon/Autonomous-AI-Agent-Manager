@@ -1,24 +1,49 @@
 .project-details-container {
-    background-color: #0F0C1D;
+    background-color: #0B0B14;
     min-height: 100vh;
+    background-image: radial-gradient(circle at 50% 0%, #1a1a2e 0%, #0b0b14 100%);
+    background-attachment: fixed;
+}
+
+.grid-bg {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+.glass-panel {
+    background: rgba(21, 21, 33, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.neon-border-amber {
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.progress-gradient {
+    background: linear-gradient(90deg, #8B7CFF 0%, #D946EF 100%);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(139, 124, 255, 0.2);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 124, 255, 0.4);
 }
 
 .gauge-svg {
     transform: rotate(-90deg);
-}
-
-.gauge-circle {
-    stroke-dasharray: 440;
-    stroke-dashoffset: 110;
-    transition: stroke-dashoffset 0.5s ease;
-}
-
-.employee-row:hover .remove-trigger {
-    opacity: 1;
-}
-
-.remove-trigger {
-    transition: all 0.2s ease;
 }
 
 .status-pulse {

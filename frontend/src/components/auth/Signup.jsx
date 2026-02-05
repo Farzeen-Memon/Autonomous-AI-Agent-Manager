@@ -211,8 +211,8 @@ const Signup = () => {
                     Already have an account? <a href="/login" className="signup-link">Sign in</a>
                 </p>
 
-                <div className="footer-stats-row">
-                    <span>v4.0.2 Stable</span>
+                <div className="footer-stats-row text-[10px] opacity-30">
+                    <span>© Nexo 2026</span>
                     <span>System Status: Optimal</span>
                 </div>
             </form>
