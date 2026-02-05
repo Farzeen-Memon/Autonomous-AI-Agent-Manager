@@ -16,6 +16,7 @@ const EmployeeMissionBoard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', project_id: '' });
     const [projects, setProjects] = useState([]);
+    const [showAllTasks, setShowAllTasks] = useState(false);
 
     const getProfileImage = () => {
         const avatar = user?.profile?.avatar_url;
@@ -54,7 +55,7 @@ const EmployeeMissionBoard = () => {
                 if (response.ok) {
                     const data = await response.json();
                     setProjects(data);
-                    const profileId = user.profile?.id || user.profile?._id;
+                    const profileId = user.profile?.id || user.profile?._id || user.id;
 
                     const backlog = [];
                     const inProgress = [];
@@ -63,15 +64,21 @@ const EmployeeMissionBoard = () => {
                     data.forEach(project => {
                         if (project.tasks && Array.isArray(project.tasks)) {
                             project.tasks.forEach(task => {
-                                // Robust comparison: convert both to string for matching
-                                const isAssignedToMe = String(task.assigned_to) === String(profileId);
+                                // Robust ID normalization and comparison
+                                const taskAssignedId = task.assigned_to
+                                    ? (typeof task.assigned_to === 'object' ? task.assigned_to.id || task.assigned_to._id || task.assigned_to : String(task.assigned_to))
+                                    : null;
 
-                                if (isAssignedToMe) {
+                                const myId = String(profileId);
+                                const isAssignedToMe = taskAssignedId && taskAssignedId === myId;
+
+                                if (isAssignedToMe || showAllTasks) {
                                     const taskWithMeta = {
                                         ...task,
                                         projectTitle: project.title,
                                         projectId: project.id || project._id,
-                                        deadline: task.deadline && task.deadline !== 'TBD' ? task.deadline : project.deadline
+                                        deadline: task.deadline && task.deadline !== 'TBD' ? task.deadline : project.deadline,
+                                        isMyTask: isAssignedToMe
                                     };
 
                                     if (task.status === 'completed') {
@@ -99,7 +106,7 @@ const EmployeeMissionBoard = () => {
         // Set up interval for "real-time" updates (every 10 seconds)
         const interval = setInterval(fetchTasks, 3000);
         return () => clearInterval(interval);
-    }, [user]);
+    }, [user, showAllTasks]);
 
     const handleAddTask = async (e) => {
         e.preventDefault();
@@ -186,8 +193,12 @@ const EmployeeMissionBoard = () => {
         }
     };
 
-    const totalTasks = tasks.backlog.length + tasks.inProgress.length + tasks.completed.length;
-    const efficiency = totalTasks > 0 ? Math.round((tasks.completed.length / totalTasks) * 100) : 0;
+    const myBacklog = tasks.backlog.filter(t => t.isMyTask !== false);
+    const myInProgress = tasks.inProgress.filter(t => t.isMyTask !== false);
+    const myCompleted = tasks.completed.filter(t => t.isMyTask !== false);
+
+    const totalTasks = myBacklog.length + myInProgress.length + myCompleted.length;
+    const efficiency = totalTasks > 0 ? Math.round((myCompleted.length / totalTasks) * 100) : 0;
     const dashOffset = 628.3 - (628.3 * efficiency) / 100;
 
     const getPriorityStyle = (priority) => {
@@ -369,15 +380,84 @@ const EmployeeMissionBoard = () => {
                             <div className="flex justify-between items-end mb-8 flex-wrap gap-4 shrink-0">
                                 <div className="flex flex-col gap-1">
                                     <h2 className="text-2xl font-display font-bold text-white tracking-tight uppercase leading-none">Mission Control</h2>
-                                    <span className="text-[10px] text-[var(--electric-purple)] font-mono uppercase tracking-[0.3em] opacity-60">System Protocol: Active</span>
+                                    <span className="text-[10px] text-[var(--electric-purple)] font-mono uppercase tracking-[0.3em] opacity-60">
+                                        System Protocol: Active | {projects.length} Projects | ID: {user.profile?.id || user.profile?._id || 'N/A'}
+                                    </span>
                                 </div>
-                                <button
-                                    onClick={() => setIsModalOpen(true)}
-                                    className="bg-[var(--electric-purple)] hover:bg-[#7a6bed] text-white px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 transition-all transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,124,255,0.4)] z-10 whitespace-nowrap"
-                                >
-                                    <span className="material-symbols-outlined text-sm">add_task</span> ADD NEW TASK
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setShowAllTasks(!showAllTasks)}
+                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border ${showAllTasks ? 'bg-amber-500/20 border-amber-500/50 text-amber-500' : 'bg-white/5 border-white/10 text-white/40'}`}
+                                    >
+                                        DEBUG: {showAllTasks ? 'SHOWING ALL' : 'MY TASKS'}
+                                    </button>
+                                    <button
+                                        onClick={() => setIsModalOpen(true)}
+                                        className="bg-[var(--electric-purple)] hover:bg-[#7a6bed] text-white px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 transition-all transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,124,255,0.4)] z-10 whitespace-nowrap"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">add_task</span> ADD NEW TASK
+                                    </button>
+                                </div>
                             </div>
+
+                            {showAllTasks && (
+                                <div className="mb-8 bg-black/40 border border-amber-500/30 p-6 rounded-2xl text-[11px] font-mono shadow-2xl backdrop-blur-md">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="text-amber-500 uppercase font-black tracking-[0.2em] flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-sm">terminal</span>
+                                            Diagnostic Terminal
+                                        </div>
+                                        <div className="text-white/20 text-[9px] uppercase tracking-widest">Neural Link Debuggery</div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-8 mb-6 bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                                        <div className="space-y-1">
+                                            <p className="text-white/30 text-[9px] uppercase font-bold text-pink-500/50">My Identity Matrix</p>
+                                            <p className="text-white truncate">ID: <span className="text-primary">{String(user.profile?.id || user.profile?._id || 'N/A')}</span></p>
+                                            <p className="text-white truncate">EMAIL: <span className="text-white/70">{user.email}</span></p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-white/30 text-[9px] uppercase font-bold text-cyan-500/50">Neural Sync Status</p>
+                                            <p className="text-white">PROJECTS: <span className="text-cyan-400 font-bold">{projects.length}</span></p>
+                                            <p className="text-white">RAW TASKS: <span className="text-cyan-400 font-bold">{projects.reduce((sum, p) => sum + (p.tasks?.length || 0), 0)}</span></p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-4">
+                                        {projects.map((p, i) => (
+                                            <div key={i} className="border-l-2 border-white/10 pl-4 py-1">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-primary font-bold uppercase tracking-tighter text-xs">{p.title}</span>
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${p.status === 'finalized' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-white/40'}`}>
+                                                        {p.status}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {p.tasks?.map((t, ti) => {
+                                                        const targetId = String(user.profile?.id || user.profile?._id || '');
+                                                        const assigneeId = String(t.assigned_to || '');
+                                                        const isMatch = assigneeId === targetId;
+                                                        return (
+                                                            <div key={ti} className={`flex items-center justify-between p-2 rounded ${isMatch ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.02]'}`}>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-white/80 font-medium">{t.title}</span>
+                                                                    <span className="text-[9px] text-white/30 font-mono">Assignee: {assigneeId || 'UNASSIGNED'}</span>
+                                                                </div>
+                                                                {isMatch && (
+                                                                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold uppercase text-[9px] tracking-widest animate-pulse">
+                                                                        <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                                                                        ID MATCH
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Kanban Columns - Full Height Filling */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 min-h-0">
@@ -519,8 +599,8 @@ const EmployeeMissionBoard = () => {
                                         <div className="bg-[#151125] p-6 rounded-xl border border-white/5 text-center group hover:border-[var(--electric-purple)]/50 transition-all hover:scale-105 cursor-pointer hover:shadow-[0_0_30px_rgba(139,124,255,0.3)]">
                                             <p className="text-[15px] text-white/30 uppercase tracking-widest mb-2">Missions</p>
                                             <p className="text-4xl font-display font-medium text-white group-hover:scale-110 transition-transform">
-                                                {tasks.completed.length + tasks.inProgress.length}
-                                                <span className="text-[18px] text-white/20 ml-1">/15</span>
+                                                {myCompleted.length + myInProgress.length}
+                                                <span className="text-[18px] text-white/20 ml-1">/{totalTasks || 15}</span>
                                             </p>
                                         </div>
                                         <div className="bg-[#151125] p-6 rounded-xl border border-white/5 text-center group hover:border-[var(--soft-cyan)]/50 transition-all hover:scale-105 cursor-pointer hover:shadow-[0_0_30px_rgba(93,230,255,0.3)]">

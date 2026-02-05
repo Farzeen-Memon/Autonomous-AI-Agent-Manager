@@ -1,0 +1,14 @@
+﻿User: farzeenmemonn@gmail.com (Role: UserRole.ADMIN) -> Profile ID: 6975b6483ad7e3fe9a0f99e4
+User: priya@gmail.com (Role: UserRole.EMPLOYEE) -> Profile ID: 697989f3b737dd7e02efc52c
+User: aarav@gmail.com (Role: UserRole.EMPLOYEE) -> Profile ID: 697989f3b737dd7e02efc530
+User: pranav@gmail.com (Role: UserRole.EMPLOYEE) -> Profile ID: 697989f3b737dd7e02efc534
+User: ronn@gmail.com (Role: UserRole.EMPLOYEE) -> Profile ID: 697989f3b737dd7e02efc538
+User: shruti@gmail.com (Role: UserRole.EMPLOYEE) -> Profile ID: 697989f3b737dd7e02efc53c
+User: swejal@gmail.com (Role: UserRole.EMPLOYEE) -> Profile ID: 69798b081b69c1761185b156
+User: shrutika@gmail.com (Role: UserRole.EMPLOYEE) -> Profile ID: 697d92fafff6a1a66c38857e
+
+Finalized Projects Team Assignments:
+Project: Movie Recommendation
+  Team IDs: [ObjectId('69770bbfcc2ce5ffeb28850f'), ObjectId('697989f3b737dd7e02efc52c'), ObjectId('697989f3b737dd7e02efc534'), ObjectId('697989f3b737dd7e02efc538'), ObjectId('697989f3b737dd7e02efc53c')]
+Project: cooking ml
+  Team IDs: [ObjectId('697989f3b737dd7e02efc52c'), ObjectId('697989f3b737dd7e02efc530'), ObjectId('697989f3b737dd7e02efc534'), ObjectId('697989f3b737dd7e02efc53c'), ObjectId('697713e3b6904740a7afe7e6'), ObjectId('69798b081b69c1761185b156')]

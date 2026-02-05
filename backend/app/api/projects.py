@@ -113,16 +113,22 @@ async def get_project(
 async def get_my_projects(current_user: User = Depends(is_authenticated)):
     profile = await EmployeeProfile.find_one(EmployeeProfile.user_id == current_user.id)
     if not profile:
-        print(f"DEBUG: No profile found for user {current_user.id}")
+        print(f"CRITICAL: No profile for user {current_user.email} ({current_user.id})")
         return []
     
-    # Find projects where profile.id is in the assigned_team list
-    # Use ElemMatch or just direct match if it's a list
+    # Query projects where user is in assigned_team
+    # We use a broad trace for debugging
     projects = await Project.find({"assigned_team": profile.id}).to_list()
     
-    print(f"DEBUG: User {current_user.email} (Profile ID: {profile.id}) matched {len(projects)} projects")
-    for p in projects:
-        print(f"DEBUG: Project {p.title} tasks counts: {len(p.tasks)}")
+    print(f"SYNC: User {current_user.email} (Profile: {profile.id}) matched {len(projects)} projects")
+    
+    if not projects:
+         # Fallback check: maybe status needs to be checked? 
+         # Or maybe the ID type in assigned_team is a string?
+         projects_alt = await Project.find({"assigned_team": str(profile.id)}).to_list()
+         if projects_alt:
+             print(f"SYNC WARNING: Matched {len(projects_alt)} projects using STRING ID fallback!")
+             projects = projects_alt
         
     return serialize_doc(projects)
 
