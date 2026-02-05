@@ -391,18 +391,19 @@
     gap: 1.5rem;
 }
 
-.column-header {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-    letter-spacing: 1px;
+.kanban-col {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 16px;
+    padding: 1rem;
+    min-height: 400px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
 }
 
-.task-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+.kanban-col.drag-over {
+    background: rgba(138, 43, 226, 0.05);
+    border: 1px dashed var(--accent-purple);
+    transform: scale(1.01);
 }
 
 .small-task-card {
@@ -411,11 +412,21 @@
     border-radius: 12px;
     padding: 1rem;
     transition: all 0.3s ease;
+    user-select: none;
+}
+
+.small-task-card.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+    transform: scale(0.95);
+    border: 1px dashed var(--accent-purple);
 }
 
 .small-task-card:hover {
     border-color: var(--accent-purple);
     background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .task-card-top {

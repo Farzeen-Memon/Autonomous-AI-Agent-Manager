@@ -7,109 +7,203 @@ const TaskDashboard = () => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('in_progress');
+    const [usingMockData, setUsingMockData] = useState(false);
+
+    const fetchData = async () => {
+        try {
+            const token = localStorage.getItem('token');
+
+            // 1. Fetch Profile
+            const profileRes = await fetch(`${API_BASE_URL}/employees/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const profileData = await profileRes.json();
+            setProfile(profileData.profile);
+
+            // 2. Fetch Projects and filter tasks
+            const projectsRes = await fetch(`${API_BASE_URL}/projects/my-projects`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (projectsRes.ok) {
+                const projects = await projectsRes.json();
+                let allTasks = [];
+
+                // Debug: Log employee profile ID
+                const profileId = profileData.profile._id?.$oid || profileData.profile._id;
+                console.log('🔍 EMPLOYEE DASHBOARD DEBUG:');
+                console.log('  Employee Profile ID:', profileId);
+                console.log('  Employee Name:', profileData.profile.full_name);
+                console.log('  Projects Found:', projects.length);
+
+                projects.forEach((project, pIndex) => {
+                    console.log(`\n  📁 Project ${pIndex + 1}: "${project.title}"`);
+                    console.log('    Project ID:', project._id);
+                    console.log('    Status:', project.status);
+                    console.log('    Tasks in Project:', project.tasks?.length || 0);
+
+                    if (project.tasks) {
+                        project.tasks.forEach((task, tIndex) => {
+                            // Match tasks assigned to this employee's ID
+                            const assignedToId = task.assigned_to?.$oid || task.assigned_to;
+
+                            console.log(`      Task ${tIndex + 1}: "${task.title}"`);
+                            console.log('        Assigned To:', assignedToId);
+                            console.log('        Status:', task.status);
+                            console.log('        Match:', assignedToId === profileId ? '✅ YES' : '❌ NO');
+
+                            if (assignedToId === profileId) {
+                                allTasks.push({
+                                    ...task,
+                                    projectId: project._id?.$oid || project._id,
+                                    projectTitle: project.title,
+                                    taskIndex: tIndex
+                                });
+                            }
+                        });
+                    }
+                });
+
+                console.log('\n  ✨ TOTAL TASKS ASSIGNED TO THIS EMPLOYEE:', allTasks.length);
+                if (allTasks.length > 0) {
+                    console.log('  Tasks:', allTasks.map(t => t.title));
+                    setUsingMockData(false);
+                } else {
+                    console.log('  ⚠️ No tasks found - using mock data for demo');
+                    setUsingMockData(true);
+
+                    allTasks = [
+                        {
+                            title: "Backend API Migration – Phase 2",
+                            description: "Migrate legacy endpoints to the new microservices architecture.",
+                            priority: "high",
+                            status: "in_progress",
+                            deadline: "Due in 6 hours",
+                            projectTitle: "Payment Platform Revamp",
+                            projectId: "mock-1"
+                        },
+                        {
+                            title: "Database Schema Update",
+                            description: "Refactor user profiles for better indexing.",
+                            priority: "medium",
+                            status: "completed",
+                            deadline: "Completed today",
+                            projectTitle: "Data Resilience",
+                            projectId: "mock-2"
+                        },
+                        {
+                            title: "Fraud Detection Enhancement",
+                            description: "Implement real-time analysis for transaction patterns.",
+                            priority: "low",
+                            status: "backlog",
+                            deadline: "May 1",
+                            projectTitle: "Security Suite",
+                            projectId: "mock-3"
+                        },
+                        {
+                            title: "API Authentication Module",
+                            description: "Secure token exchange endpoints.",
+                            priority: "medium",
+                            status: "backlog",
+                            deadline: "May 13",
+                            projectTitle: "Security Suite",
+                            projectId: "mock-4"
+                        },
+                        {
+                            title: "React Dashboard Redesign",
+                            description: "High impact UI overhaul.",
+                            priority: "high",
+                            status: "completed",
+                            deadline: "Completed",
+                            projectTitle: "Dashboard UX",
+                            projectId: "mock-5"
+                        }
+                    ];
+                }
+
+                setTasks(allTasks);
+            }
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const token = localStorage.getItem('token');
-
-                // 1. Fetch Profile
-                const profileRes = await fetch(`${API_BASE_URL}/employees/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const profileData = await profileRes.json();
-                setProfile(profileData.profile);
-
-                // 2. Fetch Projects and filter tasks
-                const projectsRes = await fetch(`${API_BASE_URL}/projects/my-projects`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (projectsRes.ok) {
-                    const projects = await projectsRes.json();
-                    let allTasks = [];
-
-                    projects.forEach(project => {
-                        if (project.tasks) {
-                            project.tasks.forEach(task => {
-                                // Match tasks assigned to this employee's ID
-                                // task.assigned_to might be a string or object depending on serialization
-                                const assignedToId = task.assigned_to?.$oid || task.assigned_to;
-                                const profileId = profileData.profile._id?.$oid || profileData.profile._id;
-
-                                if (assignedToId === profileId) {
-                                    allTasks.push({
-                                        ...task,
-                                        projectId: project._id,
-                                        projectTitle: project.title
-                                    });
-                                }
-                            });
-                        }
-                    });
-
-                    // Mock data if empty for demo purposes (to match the aesthetic request)
-                    if (allTasks.length === 0) {
-                        allTasks = [
-                            {
-                                title: "Backend API Migration – Phase 2",
-                                description: "Migrate legacy endpoints to the new microservices architecture.",
-                                priority: "high",
-                                status: "in_progress",
-                                deadline: "Due in 6 hours",
-                                projectTitle: "Payment Platform Revamp",
-                                projectId: "mock-1"
-                            },
-                            {
-                                title: "Database Schema Update",
-                                description: "Refactor user profiles for better indexing.",
-                                priority: "medium",
-                                status: "completed",
-                                deadline: "Completed today",
-                                projectTitle: "Data Resilience",
-                                projectId: "mock-2"
-                            },
-                            {
-                                title: "Fraud Detection Enhancement",
-                                description: "Implement real-time analysis for transaction patterns.",
-                                priority: "low",
-                                status: "backlog",
-                                deadline: "May 1",
-                                projectTitle: "Security Suite",
-                                projectId: "mock-3"
-                            },
-                            {
-                                title: "API Authentication Module",
-                                description: "Secure token exchange endpoints.",
-                                priority: "medium",
-                                status: "backlog",
-                                deadline: "May 13",
-                                projectTitle: "Security Suite",
-                                projectId: "mock-4"
-                            },
-                            {
-                                title: "React Dashboard Redesign",
-                                description: "High impact UI overhaul.",
-                                priority: "high",
-                                status: "completed",
-                                deadline: "Completed",
-                                projectTitle: "Dashboard UX",
-                                projectId: "mock-5"
-                            }
-                        ];
-                    }
-
-                    setTasks(allTasks);
-                }
-            } catch (error) {
-                console.error('Error fetching dashboard data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchData();
     }, []);
+
+    // DRAG AND DROP HANDLERS
+    const onDragStart = (e, task) => {
+        e.dataTransfer.setData('taskTitle', task.title);
+        e.dataTransfer.setData('projectId', task.projectId);
+        e.target.classList.add('dragging');
+    };
+
+    const onDragEnd = (e) => {
+        e.target.classList.remove('dragging');
+    };
+
+    const onDragOver = (e) => {
+        e.preventDefault();
+        e.currentTarget.classList.add('drag-over');
+    };
+
+    const onDragLeave = (e) => {
+        e.currentTarget.classList.remove('drag-over');
+    };
+
+    const onDrop = async (e, newStatus) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+
+        const taskTitle = e.dataTransfer.getData('taskTitle');
+        const projectId = e.dataTransfer.getData('projectId');
+
+        if (!taskTitle || !projectId) return;
+
+        // Optimistic UI update
+        const updatedTasks = tasks.map(t => {
+            if (t.title === taskTitle && (t.projectId?.$oid || t.projectId) === (projectId?.$oid || projectId)) {
+                return { ...t, status: newStatus };
+            }
+            return t;
+        });
+        setTasks(updatedTasks);
+
+        // If it's mock data, we don't need to call the backend
+        const projectIdStr = String(projectId?.$oid || projectId || '');
+        if (usingMockData || projectIdStr.startsWith('mock-')) {
+            console.log('Mock task status updated to:', newStatus);
+            return;
+        }
+
+        // Call backend to update status
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/status`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    task_title: taskTitle,
+                    status: newStatus
+                })
+            });
+
+            if (!response.ok) {
+                console.error('Failed to update task status in backend');
+                // Optional: Revert UI if needed
+            } else {
+                console.log(`Successfully updated "${taskTitle}" to ${newStatus}`);
+            }
+        } catch (error) {
+            console.error('Error updating task status:', error);
+        }
+    };
 
     const getTasksByStatus = (status) => tasks.filter(t => t.status === status);
 
@@ -174,6 +268,26 @@ const TaskDashboard = () => {
                     </div>
                 </div>
             </nav>
+
+            {/* Debug Banner - Shows when using mock data */}
+            {usingMockData && (
+                <div className="mx-8 mt-6 mb-4 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                        <i className="fas fa-info-circle text-yellow-400 mt-1"></i>
+                        <div className="flex-1">
+                            <h4 className="text-yellow-300 font-semibold mb-1">Demo Mode - No Tasks Assigned Yet</h4>
+                            <p className="text-sm text-yellow-100/80 leading-relaxed">
+                                You're seeing demo tasks because no projects have been assigned to you yet.
+                                When an admin creates a project and assigns tasks to you, they will appear here automatically.
+                            </p>
+                            <p className="text-xs text-yellow-100/60 mt-2">
+                                <strong>Admin Workflow:</strong> Create Project → Decompose Tasks → Distribute to Team → Finalize Project
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             <div className="dashboard-grid">
                 <div className="main-content">
@@ -256,14 +370,24 @@ const TaskDashboard = () => {
                         </div>
                         <div className="kanban-columns">
                             {/* Backlog */}
-                            <div className="kanban-col">
+                            <div
+                                className="kanban-col drop-zone"
+                                onDragOver={onDragOver}
+                                onDragLeave={onDragLeave}
+                                onDrop={(e) => onDrop(e, 'backlog')}
+                            >
                                 <div className="column-header mb-4 flex items-center justify-between">
                                     <span>Backlog</span>
                                     <span className="opacity-30">{getTasksByStatus('backlog').length}</span>
                                 </div>
                                 <div className="task-list">
                                     {getTasksByStatus('backlog').map((t, i) => (
-                                        <TaskCard key={i} task={t} />
+                                        <TaskCard
+                                            key={`${t.projectId}-${t.title}-${i}`}
+                                            task={t}
+                                            onDragStart={(e) => onDragStart(e, t)}
+                                            onDragEnd={onDragEnd}
+                                        />
                                     ))}
                                     {getTasksByStatus('backlog').length === 0 && (
                                         <div className="text-[10px] text-center opacity-30 py-8 border border-dashed border-white/10 rounded-xl">Empty Backlog</div>
@@ -271,27 +395,53 @@ const TaskDashboard = () => {
                                 </div>
                             </div>
                             {/* In Progress */}
-                            <div className="kanban-col">
+                            <div
+                                className="kanban-col drop-zone"
+                                onDragOver={onDragOver}
+                                onDragLeave={onDragLeave}
+                                onDrop={(e) => onDrop(e, 'in_progress')}
+                            >
                                 <div className="column-header mb-4 flex items-center justify-between">
                                     <span>In Progress</span>
                                     <span className="opacity-30">{getTasksByStatus('in_progress').length}</span>
                                 </div>
                                 <div className="task-list">
                                     {getTasksByStatus('in_progress').map((t, i) => (
-                                        <TaskCard key={i} task={t} />
+                                        <TaskCard
+                                            key={`${t.projectId}-${t.title}-${i}`}
+                                            task={t}
+                                            onDragStart={(e) => onDragStart(e, t)}
+                                            onDragEnd={onDragEnd}
+                                        />
                                     ))}
+                                    {getTasksByStatus('in_progress').length === 0 && (
+                                        <div className="text-[10px] text-center opacity-30 py-8 border border-dashed border-white/10 rounded-xl">No tasks in progress</div>
+                                    )}
                                 </div>
                             </div>
                             {/* Completed */}
-                            <div className="kanban-col">
+                            <div
+                                className="kanban-col drop-zone"
+                                onDragOver={onDragOver}
+                                onDragLeave={onDragLeave}
+                                onDrop={(e) => onDrop(e, 'completed')}
+                            >
                                 <div className="column-header mb-4 flex items-center justify-between">
                                     <span>Completed</span>
                                     <span className="opacity-30">{getTasksByStatus('completed').length}</span>
                                 </div>
                                 <div className="task-list">
                                     {getTasksByStatus('completed').map((t, i) => (
-                                        <TaskCard key={i} task={t} />
+                                        <TaskCard
+                                            key={`${t.projectId}-${t.title}-${i}`}
+                                            task={t}
+                                            onDragStart={(e) => onDragStart(e, t)}
+                                            onDragEnd={onDragEnd}
+                                        />
                                     ))}
+                                    {getTasksByStatus('completed').length === 0 && (
+                                        <div className="text-[10px] text-center opacity-30 py-8 border border-dashed border-white/10 rounded-xl">No completed tasks</div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -421,8 +571,13 @@ const TaskDashboard = () => {
     );
 };
 
-const TaskCard = ({ task }) => (
-    <div className="small-task-card group">
+const TaskCard = ({ task, onDragStart, onDragEnd }) => (
+    <div
+        className="small-task-card group cursor-grab active:cursor-grabbing"
+        draggable="true"
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+    >
         <div className="task-card-top mb-3">
             <span className={`priority-badge priority-${task.priority} font-mono uppercase text-[9px] font-bold`}>{task.priority}</span>
             <span className="text-[9px] text-white/40 group-hover:text-white/70 transition-colors uppercase">{task.deadline || 'May 1'}</span>
@@ -430,7 +585,7 @@ const TaskCard = ({ task }) => (
         <h4 className="text-[13px] font-semibold mb-1 group-hover:text-purple-400 transition-colors">{task.title}</h4>
         <p className="text-[10px] text-white/40 mb-3 line-clamp-2 leading-relaxed">{task.description}</p>
         <div className="task-meta flex items-center justify-between border-t border-white/5 pt-3">
-            <span className="text-[9px] opacity-40 font-mono">NODE-001</span>
+            <span className="text-[9px] opacity-40 font-mono">NODE-{task.projectId?.toString().substring(0, 4).toUpperCase()}</span>
             <div className="flex -space-x-2">
                 <div className="w-4 h-4 rounded-full bg-white/10 border border-white/20 text-[8px] flex items-center justify-center">AI</div>
             </div>

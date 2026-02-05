@@ -13,6 +13,11 @@ from datetime import datetime
 
 from bson import ObjectId
 from app.core.serialization import serialize_doc
+from pydantic import BaseModel
+
+class TaskStatusUpdate(BaseModel):
+    task_title: str
+    status: str
 
 router = APIRouter()
 
@@ -83,6 +88,29 @@ async def get_portfolio(current_user: User = Depends(is_authenticated)):
         
     return enriched_projects
 
+@router.get("/my-projects", response_model=List[dict])
+async def get_my_projects(current_user: User = Depends(is_authenticated)):
+    profile = await EmployeeProfile.find_one(EmployeeProfile.user_id == current_user.id)
+    if not profile:
+        print(f"CRITICAL: No profile for user {current_user.email} ({current_user.id})")
+        return []
+    
+    # Query projects where user is in assigned_team
+    # We use a broad trace for debugging
+    projects = await Project.find({"assigned_team": profile.id}).to_list()
+    
+    print(f"SYNC: User {current_user.email} (Profile: {profile.id}) matched {len(projects)} projects")
+    
+    if not projects:
+         # Fallback check: maybe status needs to be checked? 
+         # Or maybe the ID type in assigned_team is a string?
+         projects_alt = await Project.find({"assigned_team": str(profile.id)}).to_list()
+         if projects_alt:
+             print(f"SYNC WARNING: Matched {len(projects_alt)} projects using STRING ID fallback!")
+             projects = projects_alt
+        
+    return serialize_doc(projects)
+
 @router.get("/{project_id}", response_model=dict)
 async def get_project(
     project_id: PydanticObjectId,
@@ -109,29 +137,6 @@ async def get_project(
         "team": team
     })
 
-@router.get("/my-projects", response_model=List[dict])
-async def get_my_projects(current_user: User = Depends(is_authenticated)):
-    profile = await EmployeeProfile.find_one(EmployeeProfile.user_id == current_user.id)
-    if not profile:
-        print(f"CRITICAL: No profile for user {current_user.email} ({current_user.id})")
-        return []
-    
-    # Query projects where user is in assigned_team
-    # We use a broad trace for debugging
-    projects = await Project.find({"assigned_team": profile.id}).to_list()
-    
-    print(f"SYNC: User {current_user.email} (Profile: {profile.id}) matched {len(projects)} projects")
-    
-    if not projects:
-         # Fallback check: maybe status needs to be checked? 
-         # Or maybe the ID type in assigned_team is a string?
-         projects_alt = await Project.find({"assigned_team": str(profile.id)}).to_list()
-         if projects_alt:
-             print(f"SYNC WARNING: Matched {len(projects_alt)} projects using STRING ID fallback!")
-             projects = projects_alt
-        
-    return serialize_doc(projects)
-
 @router.put("/{project_id}", response_model=dict)
 async def update_project(
     project_id: PydanticObjectId,
@@ -148,6 +153,38 @@ async def update_project(
             setattr(project, key, value)
         project.updated_at = datetime.utcnow()
         await project.save()
+    
+    return serialize_doc(project)
+
+@router.put("/{project_id}/tasks/status", response_model=dict)
+async def update_task_status(
+    project_id: PydanticObjectId,
+    update_data: TaskStatusUpdate,
+    current_user: User = Depends(is_authenticated)
+):
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check if user is in the team (unless admin)
+    profile = await EmployeeProfile.find_one(EmployeeProfile.user_id == current_user.id)
+    if current_user.role != UserRole.ADMIN:
+        if not profile or profile.id not in project.assigned_team:
+            raise HTTPException(status_code=403, detail="You are not assigned to this project")
+
+    # Find and update the task
+    task_found = False
+    for task in project.tasks:
+        if task.title == update_data.task_title:
+            task.status = update_data.status
+            task_found = True
+            break
+    
+    if not task_found:
+        raise HTTPException(status_code=404, detail=f"Task '{update_data.task_title}' not found in project")
+    
+    project.updated_at = datetime.utcnow()
+    await project.save()
     
     return serialize_doc(project)
 
