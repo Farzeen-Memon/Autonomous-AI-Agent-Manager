@@ -10,7 +10,7 @@ const Logo = ({ className = "flex items-center gap-3", showText = true, showIcon
                     </svg>
                 </div>
             )}
-            {showText && <h2 className={textClassName}>Nexo</h2>}
+            {showText && <h2 className={`${textClassName} text-white`}>Nexo</h2>}
         </div>
     );
 };

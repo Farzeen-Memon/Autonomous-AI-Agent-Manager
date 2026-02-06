@@ -68,33 +68,33 @@ const AdminEmployeesPage = () => {
                                 </tr>
                             ) : (
                                 employees.map(emp => (
-                                    <tr key={emp.profile.id || emp.profile._id} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
+                                    <tr key={emp.profile?.id || emp.profile?._id || emp.id || emp._id} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary overflow-hidden">
-                                                    {emp.profile.avatar_url ? (
+                                                    {emp.profile?.avatar_url ? (
                                                         <img
-                                                            src={emp.profile.avatar_url.startsWith('http') ? emp.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${emp.profile.avatar_url.startsWith('/') ? emp.profile.avatar_url : '/' + emp.profile.avatar_url}`}
+                                                            src={emp.profile.avatar_url.startsWith('http') || emp.profile.avatar_url.startsWith('data:') ? emp.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${emp.profile.avatar_url.startsWith('/') ? emp.profile.avatar_url : '/' + emp.profile.avatar_url}`}
                                                             alt=""
                                                             className="w-full h-full object-cover"
                                                         />
                                                     ) : (
                                                         <img
-                                                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(emp.profile.full_name)}&background=8B7CFF&color=fff`}
+                                                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(emp.profile?.full_name || 'Node')}&background=8B7CFF&color=fff`}
                                                             alt=""
                                                             className="w-full h-full object-cover"
                                                         />
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-[var(--text-primary)]">{emp.profile.full_name}</div>
-                                                    <div className="text-xs text-[var(--text-secondary)]">{emp.profile.specialization || "Engineer Node"}</div>
+                                                    <div className="font-medium text-[var(--text-primary)]">{emp.profile?.full_name || 'Unnamed Employee'}</div>
+                                                    <div className="text-xs text-[var(--text-secondary)]">{emp.profile?.specialization || "Engineer Node"}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-[var(--text-primary)]">
-                                                {emp.profile.specialization || "Unassigned"}
+                                                {emp.profile?.specialization || "Unassigned"}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">

@@ -3,6 +3,7 @@ from beanie import init_beanie
 from app.models.user import User
 from app.models.employee import EmployeeProfile, Skill
 from app.models.project import Project
+from app.models.notification import Notification
 from app.core.config import settings
 
 async def init_db():
@@ -13,6 +14,7 @@ async def init_db():
             User,
             EmployeeProfile,
             Skill,
-            Project
+            Project,
+            Notification
         ]
     )

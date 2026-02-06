@@ -359,10 +359,14 @@ const ProjectCard = ({ project, navigate, onDelete, isPortfolio = false, isDraft
                             project.team_previews.slice(0, 3).map((member, idx) => (
                                 <div key={idx} className="size-9 rounded-full border-2 border-[#110E23] bg-slate-800 overflow-hidden ring-1 ring-white/5 group-hover:ring-primary/40 transition-all shadow-lg">
                                     {member.avatar_url ? (
-                                        <img src={member.avatar_url} alt={member.full_name} className="size-full object-cover" />
+                                        <img
+                                            src={member.avatar_url.startsWith('http') || member.avatar_url.startsWith('data:') ? member.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.avatar_url.startsWith('/') ? member.avatar_url : '/' + member.avatar_url}`}
+                                            alt={member.full_name}
+                                            className="size-full object-cover"
+                                        />
                                     ) : (
                                         <div className="size-full flex items-center justify-center text-[10px] font-black text-white uppercase bg-slate-700">
-                                            {member.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                            {member.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '??'}
                                         </div>
                                     )}
                                 </div>

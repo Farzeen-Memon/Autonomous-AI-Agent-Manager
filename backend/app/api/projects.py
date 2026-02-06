@@ -19,6 +19,11 @@ class TaskStatusUpdate(BaseModel):
     task_title: str
     status: str
 
+class HealthResponse(BaseModel):
+    health: str # stable | warning | critical
+    issues: List[str]
+    metrics: dict
+
 router = APIRouter()
 
 is_admin = RoleChecker([UserRole.ADMIN])
@@ -446,25 +451,166 @@ async def match_preview(
             detail=f"Failed to match employees: {str(e)}"
         )
 
-@router.post("/{project_id}/replan")
-async def replan_project(
+@router.get("/{project_id}/health", response_model=HealthResponse)
+async def get_project_health(
+    project_id: PydanticObjectId,
+    current_user: User = Depends(is_authenticated)
+):
+    """
+    Evaluate project health based on tasks, deadlines, and workload.
+    
+    Health States:
+    - stable (🟢): All metrics within acceptable thresholds
+    - warning (🟡): Minor risks detected (workload > 75%, deadline < 7 days)
+    - critical (🔴): Major risks (overdue, unassigned tasks, overload > 90%)
+    
+    Risk Score Calculation:
+    - Task progress < expected progress: +30 points
+    - Employee load > 90%: +40 points
+    - Deadline risk (< 3 days): +20 points
+    - Unassigned/blocked tasks: +50 points
+    
+    Threshold: risk_score > 50 triggers replanning
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    issues = []
+    health = "stable"
+    risk_score = 0
+    
+    total_tasks = len(project.tasks)
+    if total_tasks == 0:
+        return HealthResponse(
+            health="stable", 
+            issues=[], 
+            metrics={
+                "total_tasks": 0, 
+                "completed": 0, 
+                "risk_score": 0,
+                "progress": 0,
+                "expected_progress": 0,
+                "max_load": 0
+            }
+        )
+        
+    completed_tasks = len([t for t in project.tasks if t.status == "completed"])
+    in_progress_tasks = len([t for t in project.tasks if t.status == "in_progress"])
+    progress = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    
+    # Calculate expected progress based on time elapsed
+    expected_progress = 0
+    days_left = None
+    if project.deadline:
+        try:
+            deadline_dt = datetime.fromisoformat(project.deadline.replace('Z', '+00:00'))
+            # Assume project started when created
+            created_dt = project.created_at if hasattr(project, 'created_at') else datetime.utcnow()
+            total_duration = (deadline_dt - created_dt).days
+            elapsed = (datetime.utcnow() - created_dt).days
+            
+            if total_duration > 0:
+                expected_progress = (elapsed / total_duration) * 100
+                expected_progress = min(100, max(0, expected_progress))
+            
+            days_left = (deadline_dt.date() - datetime.utcnow().date()).days
+        except:
+            pass
+    
+    # 1. Task Progress vs Expected Progress
+    if expected_progress > 0 and progress < (expected_progress - 15):
+        issues.append("progress_behind_schedule")
+        risk_score += 30
+        if health == "stable": health = "warning"
+    
+    # 2. Deadline Risk
+    if days_left is not None:
+        if days_left < 0:
+            issues.append("deadline_overdue")
+            risk_score += 50
+            health = "critical"
+        elif days_left < 3:
+            issues.append("deadline_critical")
+            risk_score += 20
+            health = "critical"
+        elif days_left < 7:
+            issues.append("deadline_approaching")
+            risk_score += 10
+            if health == "stable": health = "warning"
+
+    # 3. Unassigned Tasks (Critical Issue)
+    unassigned_tasks = [t for t in project.tasks if not t.assigned_to and t.status != "completed"]
+    if len(unassigned_tasks) > 0:
+        issues.append("unassigned_tasks")
+        risk_score += 50
+        health = "critical"
+    
+    # 4. Employee Workload Analysis
+    employee_loads = {}
+    employee_hours = {}
+    
+    for t in project.tasks:
+        if t.assigned_to and t.status != "completed":
+            eid = str(t.assigned_to)
+            employee_loads[eid] = employee_loads.get(eid, 0) + 1
+            
+            # Track estimated hours
+            hours = getattr(t, 'estimated_hours', 8)
+            employee_hours[eid] = employee_hours.get(eid, 0) + hours
+    
+    max_load = max(employee_loads.values()) if employee_loads else 0
+    max_hours = max(employee_hours.values()) if employee_hours else 0
+    
+    # Check for overload (> 4 active tasks or > 40 hours)
+    for eid, load in employee_loads.items():
+        hours = employee_hours.get(eid, 0)
+        load_percentage = (hours / 40) * 100 if hours > 0 else 0  # Assume 40h/week capacity
+        
+        if load > 5 or load_percentage > 90:
+            issues.append("capacity_critical_overload")
+            risk_score += 40
+            health = "critical"
+        elif load > 3 or load_percentage > 75:
+            issues.append("capacity_near_limit")
+            risk_score += 15
+            if health == "stable": health = "warning"
+    
+    # 5. Blocked/Dependency Issues (if we had dependency tracking)
+    # For now, we'll check for tasks stuck in "in_progress" for too long
+    # This is a placeholder for future dependency tracking
+    
+    return HealthResponse(
+        health=health,
+        issues=list(set(issues)),
+        metrics={
+            "progress": round(progress, 1),
+            "expected_progress": round(expected_progress, 1),
+            "days_left": days_left if days_left is not None else 0,
+            "max_load": max_load,
+            "max_hours": max_hours,
+            "risk_score": risk_score,
+            "total_tasks": total_tasks,
+            "completed": completed_tasks,
+            "in_progress": in_progress_tasks,
+            "unassigned": len(unassigned_tasks)
+        }
+    )
+
+@router.post("/{project_id}/replan-simulate")
+async def simulate_replan_project(
     project_id: PydanticObjectId,
     current_user: User = Depends(is_admin)
 ):
-    """AI-powered project replanning"""
+    """Simulate project replanning without saving changes"""
     project = await Project.get(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     try:
-        # Fetch current team and tasks
-        # For Demo/MVP, we'll re-run matching but with a "replan" context
-        # In a real scenario, we'd look at task progress, deadlines, and conflicts.
-        
         planner = PlannerAgent()
         required_skills_list = [skill.skill_name for skill in project.required_skills]
         
-        # Calculate days remaining
         days_remaining = 7
         if project.deadline:
             try:
@@ -482,12 +628,7 @@ async def replan_project(
         )
         tasks = plan.get("tasks", [])
         
-        # Save tasks to project
-        project.tasks = tasks
-        await project.save()
-
-        # Get all candidates
-
+        # Get all candidates for matching simulation
         employees_users = await User.find(User.role == UserRole.EMPLOYEE).to_list()
         employee_user_ids = [u.id for u in employees_users]
         profiles = await EmployeeProfile.find(In(EmployeeProfile.user_id, employee_user_ids)).to_list()
@@ -499,28 +640,118 @@ async def replan_project(
         matcher = MatcherAgent()
         result = await matcher.match(project=project, candidates=candidates, tasks=tasks)
         
-        # Enrich matches
         enriched_matches = []
         for match in result.get("matches", []):
             candidate = next((c for c in candidates if str(c["profile"].id) == match["employee_id"]), None)
             if candidate:
                 enriched_matches.append({
-                    "profile": candidate["profile"],
-                    "skills": candidate["skills"],
+                    "profile": serialize_doc(candidate["profile"]),
+                    "skills": serialize_doc(candidate["skills"]),
                     "score": match["match_score"],
                     "matched_skills": match["matched_skills"],
                     "suggested_task": match["suggested_task"],
                     "reasoning": match["reasoning"]
                 })
         
+        # Identify changes (Simulation Diff)
+        # In a real app, we'd compare old and new plans.
+        # For now, we'll return the proposed plan.
+        
         return {
-            "status": "success",
-            "message": "Project replanned successfully",
-            "tasks": tasks,
-            "team": enriched_matches
+            "proposed_tasks": tasks,
+            "proposed_assignments": enriched_matches,
+            "summary": f"Proposed re-distribution of {len(tasks)} tasks across {len(enriched_matches)} agents."
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Replanning failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
+
+@router.post("/{project_id}/replan-apply")
+async def apply_replan_project(
+    project_id: PydanticObjectId,
+    plan_data: dict, # Expects { tasks: [], assignments: [] }
+    current_user: User = Depends(is_admin)
+):
+    """
+    Apply a simulated replan to the project.
+    This will:
+    1. Update project tasks with new assignments
+    2. Update assigned team list
+    3. Set project status to FINALIZED (deploy to portfolio)
+    4. Send notifications to all employees about their new tasks
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    try:
+        from app.models.notification import Notification, NotificationType
+        
+        tasks = plan_data.get("tasks", [])
+        assignments = plan_data.get("assignments", [])
+        
+        # Update project tasks
+        # Ensure assigned_to is set correctly based on assignments
+        updated_tasks = []
+        task_assignments = {}  # Track which employee gets which tasks
+        
+        for t in tasks:
+            # Find assignment for this task
+            match = next((a for a in assignments if a["suggested_task"] == t["title"]), None)
+            if match:
+                employee_id = PydanticObjectId(match["profile"]["_id"])
+                t["assigned_to"] = employee_id
+                
+                # Track for notifications
+                if employee_id not in task_assignments:
+                    task_assignments[employee_id] = []
+                task_assignments[employee_id].append({
+                    "title": t["title"],
+                    "description": t.get("description", ""),
+                    "deadline": t.get("deadline", "TBD")
+                })
+            updated_tasks.append(t)
+            
+        project.tasks = updated_tasks
+        
+        # Update assigned team list
+        new_team = list(set([PydanticObjectId(a["profile"]["_id"]) for a in assignments]))
+        project.assigned_team = new_team
+        
+        # 🚀 FINALIZE PROJECT (Deploy to Portfolio)
+        project.status = ProjectStatus.FINALIZED
+        
+        project.updated_at = datetime.utcnow()
+        await project.save()
+        
+        # 📧 SEND NOTIFICATIONS TO EMPLOYEES
+        notifications_sent = 0
+        for employee_id, tasks_list in task_assignments.items():
+            # Create notification for each employee
+            task_titles = [t["title"] for t in tasks_list]
+            task_count = len(tasks_list)
+            
+            notification = Notification(
+                employee_id=employee_id,
+                project_id=project.id,
+                notification_type=NotificationType.REPLANNING_APPLIED,
+                title=f"🔄 New Tasks Assigned - {project.title}",
+                message=f"You have been assigned {task_count} task{'s' if task_count > 1 else ''} in the replanned project '{project.title}': {', '.join(task_titles[:3])}{'...' if task_count > 3 else ''}",
+                read=False
+            )
+            await notification.insert()
+            notifications_sent += 1
+        
+        return {
+            "status": "success", 
+            "message": f"Neural replan applied successfully. Project deployed to portfolio.",
+            "project_status": "finalized",
+            "notifications_sent": notifications_sent,
+            "tasks_updated": len(updated_tasks),
+            "team_size": len(new_team)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to apply plan: {str(e)}")
+
 
 @router.post("/{project_id}/decompose")
 async def decompose_project(

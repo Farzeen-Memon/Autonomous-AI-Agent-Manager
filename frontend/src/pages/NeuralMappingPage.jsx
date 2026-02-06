@@ -34,10 +34,8 @@ const NeuralMappingPage = () => {
     const [error, setError] = useState(null);
     const [isDecomposing, setIsDecomposing] = useState(false);
     const [isDistributing, setIsDistributing] = useState(false);
-    const [isReplanning, setIsReplanning] = useState(false);
     const [isFinalizing, setIsFinalizing] = useState(false);
     const [isFinalized, setIsFinalized] = useState(false);
-    const [showReplanUI, setShowReplanUI] = useState(false);
     const [editingTask, setEditingTask] = useState(null); // { type: 'pool' | 'team', index, data }
     const [editForm, setEditForm] = useState({ title: '', description: '', estimated_hours: 0 });
     const [showTalentPanel, setShowTalentPanel] = useState(false);
@@ -143,13 +141,11 @@ const NeuralMappingPage = () => {
     }, [location.state?.projectId]);
 
     useEffect(() => {
-        if (projectId) {
-            // Reset state ONLY when we definitely have a new valid ID to fetch
-            setProject(null);
-            setTasks([]);
-            setTeam([]);
-            fetchProjectDetails(projectId);
-        }
+        // Reset state ONLY when we definitely have a new valid ID to fetch
+        setProject(null);
+        setTasks([]);
+        setTeam([]);
+        fetchProjectDetails(projectId);
     }, [projectId, fetchProjectDetails]);
 
     // Auto-trigger decomposition if project is loaded but has no tasks
@@ -167,7 +163,7 @@ const NeuralMappingPage = () => {
             }, 1500); // Give user a moment to see the tasks
             return () => clearTimeout(timer);
         }
-    }, [tasks.length, team, isDistributing]);
+    }, [tasks.length, team, isDistributing, handleDistribute]);
 
     const handleDecompose = async () => {
         setIsDecomposing(true);
@@ -238,33 +234,6 @@ const NeuralMappingPage = () => {
         }
     };
 
-    const handleReplan = async () => {
-        setIsReplanning(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/replan`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setTasks(data.tasks || []);
-                const formattedTeam = data.team.map(m => ({
-                    profile: m.profile,
-                    skills: m.skills,
-                    assigned_task: m.suggested_task,
-                    match_score: m.score,
-                    reasoning: m.reasoning
-                }));
-                setTeam(formattedTeam);
-                setShowReplanUI(false);
-                setStatus(prev => ({ ...prev, teamOptimized: true, tasksBalanced: true, score: 98 }));
-            }
-        } catch (error) {
-            console.error('Replanning failed:', error);
-        } finally {
-            setIsReplanning(false);
-        }
-    };
 
     const handleFinalize = async () => {
         setIsFinalizing(true);
@@ -279,7 +248,7 @@ const NeuralMappingPage = () => {
                 required_skills: m.matched_skills || [],
                 priority: 'high',
                 deadline: m.suggested_deadline || 'TBD',
-                assigned_to: m.profile._id || m.profile.id
+                assigned_to: m.profile?._id || m.profile?.id
             }));
 
             const unassignedTasks = tasks.map(t => ({ ...t, assigned_to: null }));
@@ -293,7 +262,7 @@ const NeuralMappingPage = () => {
                 },
                 body: JSON.stringify({
                     status: 'finalized',
-                    assigned_team: team.map(m => m.profile._id || m.profile.id),
+                    assigned_team: team.map(m => m.profile?._id || m.profile?.id),
                     tasks: allProjectTasks
                 })
             });
@@ -521,13 +490,6 @@ const NeuralMappingPage = () => {
 
                         <div className="mt-6 pt-6 border-t border-white/5 flex gap-2">
                             <button
-                                onClick={() => setShowReplanUI(true)}
-                                className="flex-1 px-4 py-3 bg-[#1b1736] border border-white/10 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-white/5 transition-colors"
-                            >
-                                <span className="material-symbols-outlined text-sm">refresh</span>
-                                Auto-Replan
-                            </button>
-                            <button
                                 onClick={() => {
                                     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
                                     recognition.onresult = (event) => {
@@ -553,7 +515,7 @@ const NeuralMappingPage = () => {
                     {/* Orb & Title */}
                     <div className="flex flex-col items-center mb-12">
                         <div className="core-orb mb-[-10px] z-20">
-                            {isDecomposing || isDistributing || isReplanning ? (
+                            {isDecomposing || isDistributing ? (
                                 <div className="relative">
                                     <span className="material-symbols-outlined text-3xl animate-spin text-white opacity-40">settings</span>
                                     <div className="absolute inset-0 flex items-center justify-center">
@@ -567,7 +529,7 @@ const NeuralMappingPage = () => {
                         <div className="title-card flex flex-col items-center">
                             <h2 className="text-3xl font-bold tracking-tight mb-3 text-white">{project?.title || "Project Orchestration"}</h2>
                             <p className="text-xs font-mono text-slate-500 tracking-[0.3em] uppercase mb-4">
-                                {project?.id || project?._id || "PRJ-IDENTITY"} - {isReplanning ? "Re-Orchestrating..." : "Neural Synchronization Active"}
+                                {project?.id || project?._id || "PRJ-IDENTITY"} - Neural Synchronization Active
                             </p>
 
                             {/* Deadline Indicator Moved to Center */}
@@ -632,13 +594,13 @@ const NeuralMappingPage = () => {
                                         <div key={idx} className="flex flex-col items-center gap-2 group">
                                             <div className="relative">
                                                 <img
-                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
+                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') || member.profile.avatar_url.startsWith('data:') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
                                                     className="w-12 h-12 rounded-full border-2 border-primary/30 group-hover:border-primary transition-all object-cover"
                                                     alt={member.profile?.full_name}
                                                 />
                                                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-[#120F26] rounded-full"></div>
                                             </div>
-                                            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-tighter">{member.profile?.full_name?.split(' ')[0]}</span>
+                                            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-tighter">{member.profile?.full_name?.split(' ')[0] || 'Member'}</span>
                                         </div>
                                     ))}
 
@@ -666,62 +628,8 @@ const NeuralMappingPage = () => {
                         </div>
                     </div>
 
-                    {/* Replanning UI */}
-                    {showReplanUI && (
-                        <div className="replan-alert animate-slide-up relative bg-[#120F26] border border-amber-500/30 p-8 rounded-2xl shadow-2xl z-40">
-                            <button onClick={() => setShowReplanUI(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white">
-                                <span className="material-symbols-outlined text-sm">close</span>
-                            </button>
-                            <div className="flex items-start gap-4 mb-6">
-                                <div className="p-2 bg-amber-500/20 rounded-lg">
-                                    <span className="material-symbols-outlined text-amber-500">warning</span>
-                                </div>
-                                <div>
-                                    <h4 className="text-base font-bold text-white">Replanning Required</h4>
-                                    <p className="text-xs text-slate-400">2 tasks at risk of missing deadlines due to capacity shift.</p>
-                                </div>
-                            </div>
 
-                            <button
-                                onClick={handleReplan}
-                                disabled={isReplanning}
-                                className="w-full p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mb-4 group hover:bg-emerald-500/20 transition-all flex items-center justify-between"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-emerald-500/20 rounded-lg">
-                                        <span className="material-symbols-outlined text-emerald-400">auto_mode</span>
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-white">Apply Auto-Replan</p>
-                                        <p className="text-[10px] text-slate-500">Optimal rescheduling based on current availability</p>
-                                    </div>
-                                </div>
-                                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Recommended</span>
-                            </button>
-
-                            <button className="w-full p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all flex items-center gap-4">
-                                <div className="p-2 bg-white/10 rounded-lg text-slate-400">
-                                    <span className="material-symbols-outlined text-sm">edit</span>
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-sm font-bold text-white">Manually Adjust</p>
-                                    <p className="text-[10px] text-slate-500">Select new deadlines or reassign at-risk tasks</p>
-                                </div>
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Task Transition State */}
-                    {isReplanning && (
-                        <div className="mt-8 flex flex-col items-center gap-3">
-                            <p className="text-[10px] font-mono text-soft-cyan animate-pulse tracking-widest uppercase">Reassigning tasks...</p>
-                            <div className="w-48 loading-bar-container">
-                                <div className="loading-bar-fill"></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {!isReplanning && !showReplanUI && team.length === 0 && tasks.length > 0 && (
+                    {team.length === 0 && tasks.length > 0 && (
                         <div className="mt-8 flex flex-col items-center gap-4">
                             <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">Workflow Ready for Distribution</p>
                             <button
@@ -758,14 +666,14 @@ const NeuralMappingPage = () => {
                                         <div className="flex items-center gap-3">
                                             <div className="relative">
                                                 <img
-                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
+                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') || member.profile.avatar_url.startsWith('data:') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
                                                     className="w-10 h-10 rounded-full border border-white/10 object-cover"
                                                     alt={member.profile?.full_name}
                                                 />
                                                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-[#120F26] rounded-full"></div>
                                             </div>
                                             <div>
-                                                <h4 className="text-sm font-bold text-white">{member.profile?.full_name.split(' ')[0]}</h4>
+                                                <h4 className="text-sm font-bold text-white">{member.profile?.full_name?.split(' ')[0] || 'Member'}</h4>
                                                 <p className="text-[10px] text-slate-500 uppercase">{member.profile?.specialization || 'Engineer'}</p>
                                             </div>
                                         </div>

@@ -17,6 +17,9 @@ const EmployeeMissionBoard = () => {
     const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', project_id: '' });
     const [projects, setProjects] = useState([]);
     const [showAllTasks, setShowAllTasks] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [showNotifications, setShowNotifications] = useState(false);
 
     const getProfileImage = () => {
         const avatar = user?.profile?.avatar_url;
@@ -103,10 +106,48 @@ const EmployeeMissionBoard = () => {
         };
 
         fetchTasks();
+        fetchNotifications();
+
         // Set up interval for "real-time" updates (every 10 seconds)
-        const interval = setInterval(fetchTasks, 3000);
-        return () => clearInterval(interval);
+        const tasksInterval = setInterval(fetchTasks, 3000);
+        const notificationsInterval = setInterval(fetchNotifications, 10000);
+
+        return () => {
+            clearInterval(tasksInterval);
+            clearInterval(notificationsInterval);
+        };
     }, [user, showAllTasks]);
+
+    const fetchNotifications = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/notifications/unread`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setNotifications(data);
+                setUnreadCount(data.length);
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        }
+    };
+
+    const markNotificationRead = async (notificationId) => {
+        try {
+            await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            fetchNotifications(); // Refresh
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    };
 
     const handleAddTask = async (e) => {
         e.preventDefault();
@@ -421,6 +462,64 @@ const EmployeeMissionBoard = () => {
                                 </div>
                                 <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[var(--soft-cyan)] border-2 border-[var(--carbon-black)] rounded-full shadow-[0_0_10px_rgba(93,230,255,0.5)]"></div>
                             </div>
+
+                            {/* Notification Bell */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowNotifications(!showNotifications)}
+                                    className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all border border-white/5 relative"
+                                    title="Notifications"
+                                >
+                                    <span className="material-symbols-outlined text-xl">notifications</span>
+                                    {unreadCount > 0 && (
+                                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2 border-[var(--carbon-black)]">
+                                            {unreadCount}
+                                        </div>
+                                    )}
+                                </button>
+
+                                {/* Notification Dropdown */}
+                                {showNotifications && (
+                                    <div className="absolute right-0 top-full mt-2 w-96 bg-[var(--card-bg)] border border-white/10 rounded-2xl shadow-2xl z-[200] max-h-[500px] overflow-hidden flex flex-col">
+                                        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                                            <h3 className="text-sm font-bold uppercase tracking-widest text-white">Notifications</h3>
+                                            <span className="text-xs text-white/40">{unreadCount} unread</span>
+                                        </div>
+                                        <div className="overflow-y-auto custom-scrollbar max-h-[400px]">
+                                            {notifications.length === 0 ? (
+                                                <div className="p-8 text-center text-white/30 text-sm">
+                                                    <span className="material-symbols-outlined text-4xl mb-2 opacity-20">notifications_off</span>
+                                                    <p>No new notifications</p>
+                                                </div>
+                                            ) : (
+                                                notifications.map((notif) => (
+                                                    <div
+                                                        key={notif._id || notif.id}
+                                                        className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                                                        onClick={() => markNotificationRead(notif._id || notif.id)}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                                                                <span className="material-symbols-outlined text-primary text-sm">
+                                                                    {notif.notification_type === 'replanning_applied' ? 'psychology' : 'task'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <h4 className="text-sm font-bold text-white mb-1">{notif.title}</h4>
+                                                                <p className="text-xs text-white/60 leading-relaxed">{notif.message}</p>
+                                                                <p className="text-[10px] text-white/30 mt-2 uppercase tracking-wider">
+                                                                    {new Date(notif.created_at).toLocaleString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             <button
                                 onClick={handleLogout}
                                 className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all border border-white/5"

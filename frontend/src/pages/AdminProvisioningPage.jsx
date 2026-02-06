@@ -67,6 +67,12 @@ const AdminProvisioningPage = () => {
             localStorage.setItem('token', token);
             localStorage.setItem('role', 'admin');
 
+            const avatars = {
+                neural: "https://lh3.googleusercontent.com/aida-public/AB6AXuDpOpazgfDmLvcKQcpcHFugJrw0n7-NQrg4keB4xbHDv3upPJb2Nb0fDxveX87bg0TiQCvYYigsX-4DMkoPVnFW113EvQ64wsA265fQzDVVY3-5EDlPLzd73H69qy0-UWRWs-WLXKoAGVW2MBlRGQfI8j26YlAKKaHnOFRcUMFbE2HA7adKtDD436DuklfQ2XJyjrceXtAnihxzl26eV2yt4hIo8KAvgoTy5gP23ySe5L53AGlwaRVTAqr6GtMk91Q1h2P1FPL5_yw",
+                circuit: "https://lh3.googleusercontent.com/aida-public/AB6AXuDZoHh_BbXs-qmuU0eX845bXXs_X50Tc5tkStJfjvQ2-kAWf2DHNuXN0CsWF7wwVd5RZcImZNzULlmTmeM1druz_FkXFBfwsJLCTC8Kz6YuK4KphzfSrJjkgyJXZxG_yN0RwB0JSIGB9Hns-hRia5hawo9_gegBzVcSZMVzXKY9rVZf5-_iSCcQVFH7SxBLMk6-uc6Fuxlcq_x3uK6VN1fEJqneN_42X3mVXnwuoRmVcWKmDj5hyVijFhvTO_tA3B6sOui0fC__sPo",
+                sentient: "https://lh3.googleusercontent.com/aida-public/AB6AXuBkiXoKUtWU7OkVPZEACsab0pxVvI-_XmslklxqmpNcmmbxFFnC23-JlkxGD5XvhlCtP4sX8F-fNoPESEPExH5D76ga8ocs4IOPKTPjAjcOjokh06MjYJc3o22ATsWUlwjm7ezlGFTiZTnsoE72YoXzt5SEPN6kS3NhweM_sQQEMcjr97RNLioMk9WHo0atOcG4EeTz-34l_5kc8_PPxI7NfBiqA7og3EovkDmtbHj2mDU4VNpNUBUnnIGllnCLAllXSZqOhpFH_xs"
+            };
+
             // 2. Create Profile using the new token
             const response = await fetch(`${API_BASE_URL}/employees/profile`, {
                 method: 'PUT',
@@ -76,7 +82,7 @@ const AdminProvisioningPage = () => {
                 },
                 body: JSON.stringify({
                     full_name: name,
-                    avatar_url: previewUrl || null
+                    avatar_url: previewUrl || avatars[selectedAvatar] || null
                 })
             });
 
