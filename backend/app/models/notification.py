@@ -9,6 +9,7 @@ class NotificationType:
     PROJECT_DEPLOYED = "project_deployed"
     DEADLINE_APPROACHING = "deadline_approaching"
     REPLANNING_APPLIED = "replanning_applied"
+    DEADLINE_EXTENDED = "deadline_extended"
 
 class Notification(Document):
     """

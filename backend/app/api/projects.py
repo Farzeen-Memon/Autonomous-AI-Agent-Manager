@@ -14,6 +14,7 @@ from datetime import datetime
 from bson import ObjectId
 from app.core.serialization import serialize_doc
 from pydantic import BaseModel
+from app.models.notification import Notification, NotificationType
 
 class TaskStatusUpdate(BaseModel):
     task_title: str
@@ -23,6 +24,10 @@ class HealthResponse(BaseModel):
     health: str # stable | warning | critical
     issues: List[str]
     metrics: dict
+
+class DeadlineExtension(BaseModel):
+    new_deadline: str
+    reason: Optional[str] = None
 
 router = APIRouter()
 
@@ -451,6 +456,51 @@ async def match_preview(
             detail=f"Failed to match employees: {str(e)}"
         )
 
+@router.put("/{project_id}/extend-deadline")
+async def extend_project_deadline(
+    project_id: PydanticObjectId,
+    extension_data: DeadlineExtension,
+    current_user: User = Depends(is_admin)
+):
+    """
+    Extend project deadline with admin approval.
+    Recalculates health metrics and expected progress.
+    """
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    try:
+        old_deadline = project.deadline
+        project.deadline = extension_data.new_deadline
+        project.updated_at = datetime.utcnow()
+        await project.save()
+        
+        # Notify team members if project is finalized (active)
+        notifications_sent = 0
+        if project.status == ProjectStatus.FINALIZED and project.assigned_team:
+            for employee_id in project.assigned_team:
+                notification = Notification(
+                    employee_id=employee_id,
+                    project_id=project.id,
+                    notification_type=NotificationType.DEADLINE_EXTENDED,
+                    title=f"⏰ Deadline Extended - {project.title}",
+                    message=f"The project deadline has been extended to {extension_data.new_deadline}. " +
+                            (f"Reason: {extension_data.reason}" if extension_data.reason else ""),
+                    read=False
+                )
+                await notification.insert()
+                notifications_sent += 1
+                
+        return {
+            "status": "success", 
+            "message": "Deadline extended successfully",
+            "new_deadline": project.deadline,
+            "notifications_sent": notifications_sent
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extend deadline: {str(e)}")
+
 @router.get("/{project_id}/health", response_model=HealthResponse)
 async def get_project_health(
     project_id: PydanticObjectId,
@@ -684,8 +734,6 @@ async def apply_replan_project(
         raise HTTPException(status_code=404, detail="Project not found")
     
     try:
-        from app.models.notification import Notification, NotificationType
-        
         tasks = plan_data.get("tasks", [])
         assignments = plan_data.get("assignments", [])
         

@@ -96,6 +96,69 @@
     }
 }
 
-.animate-pulse-slow {
-    animation: pulse-slow 3s infinite ease-in-out;
+@keyframes zoom-in {
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+        filter: blur(10px);
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+
+.animate-in {
+    animation-duration: 400ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-fill-mode: forwards;
+}
+
+.zoom-in {
+    animation-name: zoom-in;
+}
+
+.glass-panel {
+    background: rgba(21, 21, 33, 0.4);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.bg-primary {
+    background-color: #8B7CFF;
+}
+
+.text-primary {
+    color: #8B7CFF;
+}
+
+.border-primary {
+    border-color: #8B7CFF;
+}
+
+.shadow-primary-glow {
+    box-shadow: 0 0 20px rgba(139, 124, 255, 0.3);
+}
+
+.premium-gradient-text {
+    background: linear-gradient(135deg, #FFF 0%, #8B7CFF 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.neural-line {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: dash 3s linear forwards;
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: 0;
+    }
 }

@@ -23,6 +23,8 @@ const ProjectDetailsPage = () => {
     const [isSimulating, setIsSimulating] = React.useState(false);
     const [isApplying, setIsApplying] = React.useState(false);
     const [showSimulation, setShowSimulation] = React.useState(false);
+    const [showDeadlineModal, setShowDeadlineModal] = React.useState(false);
+    const [extensionData, setExtensionData] = React.useState({ new_deadline: '', reason: '' });
 
     const getProfileImage = () => {
         const avatar = user?.profile?.avatar_url || user?.profile?.profile_image;
@@ -132,6 +134,37 @@ const ProjectDetailsPage = () => {
             alert('Failed to apply replanning. Please try again.');
         } finally {
             setIsApplying(false);
+        }
+    };
+
+    const handleExtendDeadline = async () => {
+        if (!extensionData.new_deadline) {
+            alert('Please select a new deadline.');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/extend-deadline`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(extensionData)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                alert(`✅ ${result.message}\nNew Deadline: ${result.new_deadline}\nNotifications Sent: ${result.notifications_sent}`);
+                setShowDeadlineModal(false);
+                fetchProjectDetails(); // Refresh health and details
+            } else {
+                const error = await response.json();
+                alert(`❌ Failed: ${error.detail}`);
+            }
+        } catch (error) {
+            console.error('Failed to extend deadline:', error);
+            alert('An error occurred while extending the deadline.');
         }
     };
 
@@ -344,141 +377,44 @@ const ProjectDetailsPage = () => {
                                     <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Max Load</div>
                                 </div>
 
-                                {/* Action Button */}
+                                {/* Action Buttons */}
                                 {(healthData.health === 'critical' || healthData.health === 'warning') && (
-                                    <>
-                                        <div className="w-px h-12 bg-white/10"></div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-px h-12 bg-white/10 mx-2"></div>
                                         <button
                                             onClick={handleSimulateReplan}
                                             disabled={isSimulating}
-                                            className={`px-6 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all shadow-lg ${healthData.health === 'critical'
-                                                ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
-                                                : 'bg-amber-500 hover:bg-amber-600 text-black shadow-amber-500/30'
-                                                } ${isSimulating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            className={`px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all shadow-lg ${healthData.health === 'critical'
+                                                    ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/20'
+                                                    : 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20'
+                                                }`}
                                         >
                                             <span className="material-symbols-outlined text-lg">
-                                                {isSimulating ? 'refresh' : 'psychology'}
+                                                {healthData.health === 'critical' ? 'rocket_launch' : 'psychology'}
                                             </span>
                                             {isSimulating ? 'Simulating...' : healthData.health === 'critical' ? 'Run Replanning' : 'Review Optimization'}
                                         </button>
-                                    </>
+                                        <button
+                                            onClick={() => {
+                                                setExtensionData({
+                                                    new_deadline: projectData?.deadline ? projectData.deadline.split('T')[0] : '',
+                                                    reason: ''
+                                                });
+                                                setShowDeadlineModal(true);
+                                            }}
+                                            className="px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all border border-white/20 hover:bg-white/10 text-white"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">calendar_month</span>
+                                            Extend
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* SIMULATION MODAL */}
-                {showSimulation && simulationData && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-                        <div className="glass-panel border border-primary/30 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                            {/* Modal Header */}
-                            <div className="p-6 border-b border-white/10">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-2xl font-black uppercase tracking-tight text-white mb-1">Neural Replanning Simulation</h2>
-                                        <p className="text-sm text-slate-400">{simulationData.summary}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowSimulation(false)}
-                                        className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined text-slate-400">close</span>
-                                    </button>
-                                </div>
-                            </div>
 
-                            {/* Modal Content */}
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                                {/* Proposed Tasks */}
-                                <div>
-                                    <h3 className="text-lg font-bold uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
-                                        <span className="material-symbols-outlined">task_alt</span>
-                                        Proposed Task Distribution ({simulationData.proposed_tasks?.length || 0} Tasks)
-                                    </h3>
-                                    <div className="space-y-3">
-                                        {simulationData.proposed_tasks?.map((task, idx) => (
-                                            <div key={idx} className="glass-panel border border-white/5 rounded-lg p-4">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                        <h4 className="font-bold text-white mb-1">{task.title}</h4>
-                                                        <p className="text-sm text-slate-400">{task.description}</p>
-                                                        {task.required_skills && task.required_skills.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                                {task.required_skills.map((skill, sidx) => (
-                                                                    <span key={sidx} className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase">
-                                                                        {skill}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-white/5 text-slate-400 border border-white/10 uppercase">
-                                                        {task.deadline || 'TBD'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Proposed Assignments */}
-                                <div>
-                                    <h3 className="text-lg font-bold uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
-                                        <span className="material-symbols-outlined">group</span>
-                                        Proposed Team Assignments ({simulationData.proposed_assignments?.length || 0} Members)
-                                    </h3>
-                                    <div className="space-y-3">
-                                        {simulationData.proposed_assignments?.map((assignment, idx) => (
-                                            <div key={idx} className="glass-panel border border-white/5 rounded-lg p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 overflow-hidden">
-                                                            {assignment.profile?.avatar_url ? (
-                                                                <img src={assignment.profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-primary font-bold text-sm">
-                                                                    {assignment.profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '??'}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <div className="font-bold text-white">{assignment.profile?.full_name || 'Unknown'}</div>
-                                                            <div className="text-sm text-slate-400">{assignment.suggested_task}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-lg font-black text-primary">{assignment.score}%</div>
-                                                        <div className="text-[10px] text-slate-500 uppercase tracking-widest">Match Score</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Modal Footer */}
-                            <div className="p-6 border-t border-white/10 flex items-center justify-end gap-3">
-                                <button
-                                    onClick={() => setShowSimulation(false)}
-                                    className="px-6 py-3 rounded-lg font-bold uppercase tracking-widest text-sm bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleApplyReplan}
-                                    disabled={isApplying}
-                                    className={`px-6 py-3 rounded-lg font-bold uppercase tracking-widest text-sm bg-primary hover:bg-primary/90 text-black transition-all shadow-lg shadow-primary/30 flex items-center gap-2 ${isApplying ? 'opacity-50 cursor-not-allowed' : ''
-                                        }`}
-                                >
-                                    <span className="material-symbols-outlined text-lg">{isApplying ? 'refresh' : 'check_circle'}</span>
-                                    {isApplying ? 'Applying...' : 'Apply Neural Plan'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
 
                 {/* Grid Layout */}
@@ -887,7 +823,7 @@ const ProjectDetailsPage = () => {
                             </div>
                         </div>
 
-                        <div className="p-8 border-t border-white/10 bg-white/5 flex items-center justify-between">
+                        <div className="p-8 border-t border-white/10 bg-white/5 flex items-center justify-between pointer-events-auto">
                             <div className="flex items-center gap-4 text-slate-400 italic text-sm">
                                 <span className="material-symbols-outlined text-emerald-500">info</span>
                                 Proposing {simulationData?.proposed_tasks.length} module adjustments for optimal neural balance.
@@ -908,6 +844,58 @@ const ProjectDetailsPage = () => {
                                     Apply Neural Plan
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ⏰ DEADLINE EXTENSION MODAL */}
+            {showDeadlineModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
+                    <div className="glass-panel border border-primary/30 rounded-2xl max-w-md w-full p-8 flex flex-col gap-6 animate-in zoom-in duration-300">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">calendar_month</span>
+                                Extend Project Deadline
+                            </h2>
+                            <button onClick={() => setShowDeadlineModal(false)} className="text-slate-400 hover:text-white transition-colors">
+                                <span className="material-symbols-outlined text-2xl">close</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">New Neural Deadline</label>
+                                <input
+                                    type="date"
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary/50 outline-none transition-all"
+                                    value={extensionData.new_deadline}
+                                    onChange={(e) => setExtensionData({ ...extensionData, new_deadline: e.target.value })}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Extension Reason (Sent to Team)</label>
+                                <textarea
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary/50 outline-none transition-all h-24 resize-none"
+                                    placeholder="Enter reason for extension..."
+                                    value={extensionData.reason}
+                                    onChange={(e) => setExtensionData({ ...extensionData, reason: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3 pt-2">
+                            <button
+                                onClick={handleExtendDeadline}
+                                className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-black font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined">verified</span>
+                                Confirm Extension
+                            </button>
+                            <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest">
+                                Confirming will notify all assigned team members and recalculate project health metrics.
+                            </p>
                         </div>
                     </div>
                 </div>
