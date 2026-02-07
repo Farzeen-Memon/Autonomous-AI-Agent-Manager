@@ -24,9 +24,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: FRONTEND_URL
-        fromService:
-            type: static
-            name: nexo-frontend
+        sync: false # User must copy-paste the static site URL here after creation
 
 staticSites:
   # Frontend Service (React/Vite)
