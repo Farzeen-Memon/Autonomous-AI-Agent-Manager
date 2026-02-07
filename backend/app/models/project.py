@@ -18,9 +18,9 @@ class RequiredSkill(BaseModel):
 class ProjectTask(BaseModel):
     title: str
     description: str
-    estimated_hours: float
-    required_skills: List[str]
-    priority: str
+    estimated_hours: float = 8.0
+    required_skills: List[str] = []
+    priority: str = "medium"
     deadline: Optional[str] = "TBD"
     assigned_to: Optional[PydanticObjectId] = None
     status: str = "backlog" # backlog, in_progress, completed

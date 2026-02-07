@@ -25,6 +25,8 @@ const ProjectDetailsPage = () => {
     const [showSimulation, setShowSimulation] = React.useState(false);
     const [showDeadlineModal, setShowDeadlineModal] = React.useState(false);
     const [extensionData, setExtensionData] = React.useState({ new_deadline: '', reason: '' });
+    const [isStaged, setIsStaged] = React.useState(false);
+    const [stagedData, setStagedData] = React.useState(null);
 
     const getProfileImage = () => {
         const avatar = user?.profile?.avatar_url || user?.profile?.profile_image;
@@ -95,7 +97,43 @@ const ProjectDetailsPage = () => {
         }
     };
 
+    const handleStageSimulation = () => {
+        if (!simulationData) return;
+
+        // "Apply" locally to states
+        // Map simulation assignments to team format { profile, skills }
+        const newTeam = simulationData.proposed_assignments.map(a => ({
+            profile: a.profile,
+            skills: a.skills
+        }));
+
+        setTeam(newTeam);
+        // We don't update tasks in projectData directly yet, or we can if we want the UI to show them
+        setProjectData(prev => ({
+            ...prev,
+            tasks: simulationData.proposed_tasks
+        }));
+
+        setStagedData(simulationData);
+        setIsStaged(true);
+        setShowSimulation(false);
+
+        // Add a log for the staging
+        setLogs(prev => [
+            { id: Date.now(), type: 'ai', title: 'PLAN STAGED', desc: 'Neural optimization staged. Awaiting final deployment.', time: new Date().toLocaleTimeString() + ' UTC' },
+            ...prev.slice(0, 4)
+        ]);
+    };
+
     const handleApplyReplan = async () => {
+        const dataToApply = stagedData || simulationData;
+
+        // If no replanning data (simulated or staged), simply navigate to dashboard
+        if (!dataToApply) {
+            navigate('/admin/dashboard');
+            return;
+        }
+
         setIsApplying(true);
         try {
             const response = await fetch(`${API_BASE_URL}/projects/${projectId}/replan-apply`, {
@@ -105,33 +143,27 @@ const ProjectDetailsPage = () => {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
                 body: JSON.stringify({
-                    tasks: simulationData.proposed_tasks,
-                    assignments: simulationData.proposed_assignments
+                    tasks: dataToApply.proposed_tasks,
+                    assignments: dataToApply.proposed_assignments
                 })
             });
             if (response.ok) {
                 const result = await response.json();
                 setShowSimulation(false);
                 setSimulationData(null);
+                setStagedData(null);
+                setIsStaged(false);
 
-                // Show success message with deployment details
-                const message = `✅ Neural Replan Applied Successfully!\n\n` +
-                    `🚀 Project Status: ${result.project_status?.toUpperCase() || 'FINALIZED'}\n` +
-                    `📋 Tasks Updated: ${result.tasks_updated || 0}\n` +
-                    `👥 Team Size: ${result.team_size || 0}\n` +
-                    `📧 Notifications Sent: ${result.notifications_sent || 0}\n\n` +
-                    `The project has been deployed to the portfolio and all team members have been notified of their assignments.`;
-
-                alert(message);
-
-                // Navigate to portfolio to see the deployed project
-                setTimeout(() => {
-                    navigate('/admin/dashboard');
-                }, 1500);
+                // Navigate to portfolio page (dashboard)
+                navigate('/admin/dashboard');
+            } else {
+                const errorData = await response.json();
+                console.error('Replan failed:', errorData);
+                alert(`Failed to apply replanning: ${errorData.detail || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Failed to apply replan:', error);
-            alert('Failed to apply replanning. Please try again.');
+            alert(`Failed to apply replanning. Network or server error: ${error.message}`);
         } finally {
             setIsApplying(false);
         }
@@ -327,6 +359,12 @@ const ProjectDetailsPage = () => {
                                             }`}>
                                             {healthData.health === 'critical' ? '🔴 CRITICAL ALERT' : healthData.health === 'warning' ? '🟡 WARNING STATE' : '🟢 STABLE OPERATION'}
                                         </h3>
+                                        {isStaged && (
+                                            <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-sm">staged_filter_list</span>
+                                                Neural Optimization Staged
+                                            </span>
+                                        )}
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${healthData.health === 'critical'
                                             ? 'bg-red-500/10 text-red-500 border-red-500/20'
                                             : healthData.health === 'warning'
@@ -385,8 +423,8 @@ const ProjectDetailsPage = () => {
                                             onClick={handleSimulateReplan}
                                             disabled={isSimulating}
                                             className={`px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all shadow-lg ${healthData.health === 'critical'
-                                                    ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/20'
-                                                    : 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20'
+                                                ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/20'
+                                                : 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20'
                                                 }`}
                                         >
                                             <span className="material-symbols-outlined text-lg">
@@ -759,8 +797,12 @@ const ProjectDetailsPage = () => {
                 <div className="flex items-center gap-3">
                     <span className="text-[13px] font-black uppercase tracking-widest text-slate-600 mr-4">© Nexo 2026</span>
                     <button className="px-4 py-2 rounded text-slate-400 hover:text-white transition-colors text-[13px] font-bold uppercase tracking-widest">Save Draft</button>
-                    <button className="px-6 py-2 rounded bg-primary hover:bg-primary/80 transition-all text-black font-black text-[18px] uppercase tracking-widest shadow-xl shadow-primary/20 flex items-center gap-2 transition-transform hover:scale-105 active:scale-95">
-                        Confirm Deployment <span className="material-symbols-outlined text-2xl">rocket_launch</span>
+                    <button
+                        onClick={handleApplyReplan}
+                        disabled={isApplying}
+                        className={`px-6 py-2 rounded transition-all text-black font-black text-[18px] uppercase tracking-widest shadow-xl flex items-center gap-2 transition-transform hover:scale-105 active:scale-95 ${isStaged ? 'bg-primary shadow-primary/20' : 'bg-primary/60 shadow-primary/10'}`}
+                    >
+                        {isApplying ? 'Processing...' : 'Confirm Deployment'} <span className="material-symbols-outlined text-2xl">rocket_launch</span>
                     </button>
                     <button className="ml-4 w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:border-primary/50 flex items-center justify-center transition-all group">
                         <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">terminal</span>
@@ -836,12 +878,11 @@ const ProjectDetailsPage = () => {
                                     Cancel Adjustments
                                 </button>
                                 <button
-                                    onClick={handleApplyReplan}
-                                    disabled={isApplying}
+                                    onClick={handleStageSimulation}
                                     className="px-8 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
                                 >
-                                    {isApplying ? <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div> : <span className="material-symbols-outlined">check_circle</span>}
-                                    Apply Neural Plan
+                                    <span className="material-symbols-outlined">check_circle</span>
+                                    Stage Optimization
                                 </button>
                             </div>
                         </div>

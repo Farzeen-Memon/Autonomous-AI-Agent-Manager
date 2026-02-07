@@ -19,6 +19,7 @@ import EmployeeTaskBriefingPage from '../pages/EmployeeTaskBriefingPage';
 import ProjectMatchingPage from '../pages/ProjectMatchingPage';
 import NeuralMappingPage from '../pages/NeuralMappingPage';
 import ProjectDetailsPage from '../pages/ProjectDetailsPage';
+import DeploymentPage from '../pages/DeploymentPage';
 
 const AppRoutes = () => {
     return (
@@ -40,6 +41,11 @@ const AppRoutes = () => {
                 <Route path="/admin/dashboard" element={
                     <ProtectedRoute allowedRoles={['admin']}>
                         <AdminDashboardPage />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admin/deployment" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                        <DeploymentPage />
                     </ProtectedRoute>
                 } />
                 <Route path="/admin/project-matching" element={

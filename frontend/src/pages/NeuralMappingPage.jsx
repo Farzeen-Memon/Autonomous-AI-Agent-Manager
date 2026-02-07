@@ -270,9 +270,7 @@ const NeuralMappingPage = () => {
             if (response.ok) {
                 localStorage.removeItem('nexo_project_draft');
                 setIsFinalized(true);
-                setTimeout(() => {
-                    navigate('/admin/dashboard');
-                }, 2000);
+                navigate('/admin/dashboard');
             } else {
                 const data = await response.json();
                 setError(`Deployment Failed: ${data.detail || 'Access denied'}`);

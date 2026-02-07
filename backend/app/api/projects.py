@@ -737,33 +737,60 @@ async def apply_replan_project(
         tasks = plan_data.get("tasks", [])
         assignments = plan_data.get("assignments", [])
         
-        # Update project tasks
-        # Ensure assigned_to is set correctly based on assignments
+        # Task Preservation & Rerouting Logic
+        current_tasks = {t.title: t for t in project.tasks}
         updated_tasks = []
-        task_assignments = {}  # Track which employee gets which tasks
-        
-        for t in tasks:
-            # Find assignment for this task
-            match = next((a for a in assignments if a["suggested_task"] == t["title"]), None)
+        task_assignments = {}
+        rerouted_notifications = []
+
+        for t_dict in tasks:
+            title = t_dict["title"]
+            # Preserve status if task already exists
+            status = "backlog"
+            old_assignee = None
+            if title in current_tasks:
+                status = current_tasks[title].status
+                old_assignee = current_tasks[title].assigned_to
+
+            # Find new assignment
+            match = next((a for a in assignments if a["suggested_task"] == title), None)
             if match:
-                employee_id = PydanticObjectId(match["profile"]["_id"])
-                t["assigned_to"] = employee_id
+                profile_data = match["profile"]
+                # Handle both _id and id formats
+                pid = profile_data.get("_id") or profile_data.get("id")
+                if not pid:
+                    continue
+                    
+                new_assignee_id = PydanticObjectId(pid)
                 
-                # Track for notifications
-                if employee_id not in task_assignments:
-                    task_assignments[employee_id] = []
-                task_assignments[employee_id].append({
-                    "title": t["title"],
-                    "description": t.get("description", ""),
-                    "deadline": t.get("deadline", "TBD")
-                })
-            updated_tasks.append(t)
+                # Check for Reroute
+                if old_assignee and old_assignee != new_assignee_id:
+                    rerouted_notifications.append({
+                        "employee_id": old_assignee,
+                        "title": f"🔄 Task Rerouted - {title}",
+                        "message": f"Task '{title}' has been moved to another agent for optimization."
+                    })
+
+                t_dict["assigned_to"] = new_assignee_id
+                t_dict["status"] = status # Preserved status
+                
+                if new_assignee_id not in task_assignments:
+                    task_assignments[new_assignee_id] = []
+                task_assignments[new_assignee_id].append(t_dict)
+
+            updated_tasks.append(t_dict)
             
         project.tasks = updated_tasks
         
         # Update assigned team list
-        new_team = list(set([PydanticObjectId(a["profile"]["_id"]) for a in assignments]))
-        project.assigned_team = new_team
+        new_team_ids = set()
+        for a in assignments:
+            profile_data = a["profile"]
+            pid = profile_data.get("_id") or profile_data.get("id")
+            if pid:
+                new_team_ids.add(PydanticObjectId(pid))
+                
+        project.assigned_team = list(new_team_ids)
         
         # 🚀 FINALIZE PROJECT (Deploy to Portfolio)
         project.status = ProjectStatus.FINALIZED
@@ -789,13 +816,26 @@ async def apply_replan_project(
             await notification.insert()
             notifications_sent += 1
         
+        # 📧 SEND REROUTED NOTIFICATIONS
+        for r_notif in rerouted_notifications:
+            notification = Notification(
+                employee_id=r_notif["employee_id"],
+                project_id=project.id,
+                notification_type=NotificationType.TASK_REROUTED,
+                title=r_notif["title"],
+                message=r_notif["message"],
+                read=False
+            )
+            await notification.insert()
+            notifications_sent += 1
+        
         return {
             "status": "success", 
             "message": f"Neural replan applied successfully. Project deployed to portfolio.",
             "project_status": "finalized",
             "notifications_sent": notifications_sent,
             "tasks_updated": len(updated_tasks),
-            "team_size": len(new_team)
+            "team_size": len(project.assigned_team)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to apply plan: {str(e)}")
