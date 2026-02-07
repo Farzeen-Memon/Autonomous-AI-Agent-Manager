@@ -36,14 +36,55 @@ class PlannerAgent:
         project_description: str,
         required_skills: List[str],
         experience_required: float,
-        days_remaining: int = 7
+        days_remaining: int = 7,
+        is_overdue: bool = False
     ) -> Dict[str, Any]:
         """
         Generate a detailed project plan with technical tasks.
         """
         
         # Construct the planning prompt
-        prompt = f"""You are an expert technical architect and project manager.
+        if is_overdue:
+            prompt = f"""You are an expert Crisis Manager and Technical Architect.
+            
+Project: {project_title}
+Context: {project_description}
+Expertise Level: {experience_required} years
+Current Status: PROJECT IS OVERDUE (Original Deadline Missed).
+
+Your goal is to create a RECOVERY PLAN to minimize damage and complete the project as fast as possible.
+
+CRITICAL RECOVERY RULES:
+1. **PRIORITIZE CRITICAL PATH**: Focus ONLY on tasks essential for MVP/Release. Cut nice-to-haves.
+2. **AGGRESSIVE SCHEDULING**: Tasks should be broken down for maximum parallelization.
+3. **DAMAGE CONTROL**: Identify the most critical failing components first.
+4. **NEW TIMELINE**: You must estimate a realistic recovery timeline (e.g. 5 days, 10 days).
+
+For each task, provide:
+1. Title: Action-oriented recovery task (e.g. "Hotfix: Database Schema", "Critical: Auth Service").
+2. Description: Specific recovery steps.
+3. Estimated Hours: Optimistic but realistic.
+4. Required Skills: Technologies needed.
+5. Priority: MUST be 'critical' or 'high'.
+6. Deadline: Relative from NOW (e.g. "Day 1 (Recovery)", "Day 3 (Recovery)").
+
+Return ONLY a valid JSON object:
+{{
+    "tasks": [
+        {{
+            "title": "Critical Recovery Task",
+            "description": "Immediate fix implementation",
+            "estimated_hours": 4.0,
+            "required_skills": ["Python", "SQL"],
+            "priority": "critical",
+            "deadline": "Day 1 (Recovery)"
+        }}
+    ],
+    "total_estimated_hours": 40.0,
+    "recommended_team_size": 3
+}}"""
+        else:
+            prompt = f"""You are an expert technical architect and project manager.
         
 Project: {project_title}
 Context: {project_description}

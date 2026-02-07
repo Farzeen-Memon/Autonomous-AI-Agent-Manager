@@ -39,9 +39,10 @@ const AdminEmployeesPage = () => {
                     <button className="btn btn-primary">+ Add Employee</button>
                 </div>
 
-                <div className="card p-0 overflow-hidden">
+                <div className="card text-slate-300 p-0 overflow-hidden border border-white/10 relative">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0"></div>
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-[var(--bg-surface-hover)] border-b border-[var(--border-subtle)] text-[var(--text-secondary)]">
+                        <thead className="bg-white/5 border-b border-white/10 text-slate-400 uppercase tracking-widest text-[10px]">
                             <tr>
                                 <th className="px-6 py-3 font-medium">Name</th>
                                 <th className="px-6 py-3 font-medium">Designation</th>
@@ -50,7 +51,7 @@ const AdminEmployeesPage = () => {
                                 <th className="px-6 py-3 font-medium">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-[var(--border-subtle)]">
+                        <tbody className="divide-y divide-white/5">
                             {loading ? (
                                 <tr>
                                     <td colSpan="5" className="px-6 py-20 text-center text-slate-500">
@@ -68,7 +69,7 @@ const AdminEmployeesPage = () => {
                                 </tr>
                             ) : (
                                 employees.map(emp => (
-                                    <tr key={emp.profile?.id || emp.profile?._id || emp.id || emp._id} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
+                                    <tr key={emp.profile?.id || emp.profile?._id || emp.id || emp._id} className="hover:bg-white/5 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary overflow-hidden">
@@ -93,12 +94,12 @@ const AdminEmployeesPage = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="font-medium text-[var(--text-primary)]">
+                                            <div className="font-medium text-slate-300">
                                                 {emp.profile?.specialization || "Unassigned"}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="badge badge-success">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                 Operational
                                             </span>
                                         </td>
@@ -106,7 +107,7 @@ const AdminEmployeesPage = () => {
                                             {emp.project_count || 0}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <button className="text-[var(--text-primary)] hover:text-[var(--primary-base)] text-sm font-medium">Profile</button>
+                                            <button className="text-primary hover:text-primary/80 text-xs font-bold uppercase tracking-widest transition-colors opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300">View Profile</button>
                                         </td>
                                     </tr>
                                 ))

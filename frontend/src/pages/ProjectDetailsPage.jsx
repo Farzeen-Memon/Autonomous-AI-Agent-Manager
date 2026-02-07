@@ -27,6 +27,7 @@ const ProjectDetailsPage = () => {
     const [extensionData, setExtensionData] = React.useState({ new_deadline: '', reason: '' });
     const [isStaged, setIsStaged] = React.useState(false);
     const [stagedData, setStagedData] = React.useState(null);
+    const [showSuccessModal, setShowSuccessModal] = React.useState(false);
 
     const getProfileImage = () => {
         const avatar = user?.profile?.avatar_url || user?.profile?.profile_image;
@@ -154,8 +155,8 @@ const ProjectDetailsPage = () => {
                 setStagedData(null);
                 setIsStaged(false);
 
-                // Navigate to portfolio page (dashboard)
-                navigate('/admin/dashboard');
+                // Show Success Modal instead of immediate navigation
+                setShowSuccessModal(true);
             } else {
                 const errorData = await response.json();
                 console.error('Replan failed:', errorData);
@@ -310,6 +311,47 @@ const ProjectDetailsPage = () => {
                                 <span className="px-2 py-0.5 rounded text-[16px] font-bold bg-white/5 text-slate-400 border border-white/10 font-mono uppercase">
                                     {projectData?._id?.substring(0, 8).toUpperCase() || 'NODE-00'}
                                 </span>
+
+                                {/* Optimization Cycles Counter & History */}
+                                <div className="relative group cursor-help flex items-center gap-2 px-3 py-0.5 rounded text-[13px] font-bold text-slate-400 border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest ml-2">
+                                    <span className="material-symbols-outlined text-base">history</span>
+                                    <span>Opt. Cycles: {projectData?.optimization_cycles || 0}</span>
+
+                                    {/* History Tooltip */}
+                                    <div className="absolute top-full left-0 mt-2 w-72 bg-[#120F26] border border-white/10 rounded-xl p-4 shadow-2xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all z-50 pointer-events-none group-hover:pointer-events-auto backdrop-blur-xl">
+                                        <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+                                            <h4 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-sm">tune</span>
+                                                Neural History
+                                            </h4>
+                                            <span className="text-[9px] font-mono text-slate-500">{projectData?.optimization_history?.length || 0} EVENTS</span>
+                                        </div>
+
+                                        <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                                            {(projectData?.optimization_history && projectData.optimization_history.length > 0) ? (
+                                                [...projectData.optimization_history].reverse().map((h, i) => (
+                                                    <div key={i} className="text-left relative pl-3 border-l border-white/10 pb-1">
+                                                        <div className="absolute left-[-1.5px] top-[6px] w-[3px] h-[3px] bg-primary rounded-full"></div>
+                                                        <div className="text-[11px] text-white font-bold tracking-tight mb-0.5">
+                                                            Cycle {projectData.optimization_history.length - i} <span className="text-slate-500 font-normal mx-1">•</span> {h.reason || 'adjustments'}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 leading-snug mb-1">
+                                                            {h.changes_summary || 'Minor parameter tuning'}
+                                                        </div>
+                                                        <div className="text-[9px] font-mono text-slate-600 uppercase">
+                                                            {new Date(h.date || Date.now()).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-4 text-slate-600">
+                                                    <span className="material-symbols-outlined text-2xl mb-1 opacity-40">history_toggle_off</span>
+                                                    <p className="text-[10px] uppercase tracking-widest">No structural optimizations recorded</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -327,130 +369,151 @@ const ProjectDetailsPage = () => {
                 </div>
 
                 {/* 🟢🟡🔴 HEALTH STATUS BANNER */}
-                {healthData && (
-                    <div className={`shrink-0 glass-panel border rounded-xl p-5 transition-all duration-500 ${healthData.health === 'critical'
-                        ? 'border-red-500/40 bg-red-500/5'
-                        : healthData.health === 'warning'
-                            ? 'border-amber-500/40 bg-amber-500/5'
-                            : 'border-emerald-500/40 bg-emerald-500/5'
-                        }`}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                {/* Health Indicator */}
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${healthData.health === 'critical'
-                                    ? 'bg-red-500/20 text-red-500'
-                                    : healthData.health === 'warning'
-                                        ? 'bg-amber-500/20 text-amber-500'
-                                        : 'bg-emerald-500/20 text-emerald-500'
-                                    }`}>
-                                    <span className="material-symbols-outlined text-2xl">
-                                        {healthData.health === 'critical' ? 'error' : healthData.health === 'warning' ? 'warning' : 'check_circle'}
-                                    </span>
-                                </div>
-
-                                {/* Health Info */}
-                                <div>
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <h3 className={`text-lg font-black uppercase tracking-widest ${healthData.health === 'critical'
-                                            ? 'text-red-500'
+                {
+                    healthData && (
+                        <div className={`shrink-0 glass-panel border rounded-xl p-5 transition-all duration-500 ${healthData.health === 'critical'
+                            ? 'border-red-500/40 bg-red-500/5'
+                            : healthData.health === 'overdue'
+                                ? 'border-rose-600/40 bg-rose-600/5'
+                                : healthData.health === 'warning'
+                                    ? 'border-amber-500/40 bg-amber-500/5'
+                                    : 'border-emerald-500/40 bg-emerald-500/5'
+                            }`}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    {/* Health Indicator */}
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${healthData.health === 'critical'
+                                        ? 'bg-red-500/20 text-red-500'
+                                        : healthData.health === 'overdue'
+                                            ? 'bg-rose-600/20 text-rose-500 animate-pulse'
                                             : healthData.health === 'warning'
-                                                ? 'text-amber-500'
-                                                : 'text-emerald-500'
-                                            }`}>
-                                            {healthData.health === 'critical' ? '🔴 CRITICAL ALERT' : healthData.health === 'warning' ? '🟡 WARNING STATE' : '🟢 STABLE OPERATION'}
-                                        </h3>
-                                        {isStaged && (
-                                            <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1">
-                                                <span className="material-symbols-outlined text-sm">staged_filter_list</span>
-                                                Neural Optimization Staged
-                                            </span>
-                                        )}
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${healthData.health === 'critical'
-                                            ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                                            : healthData.health === 'warning'
-                                                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                                                : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                            }`}>
-                                            Risk Score: {healthData.metrics?.risk_score || 0}
+                                                ? 'bg-amber-500/20 text-amber-500'
+                                                : 'bg-emerald-500/20 text-emerald-500'
+                                        }`}>
+                                        <span className="material-symbols-outlined text-2xl">
+                                            {healthData.health === 'overdue' ? 'timelapse' : healthData.health === 'critical' ? 'error' : healthData.health === 'warning' ? 'warning' : 'check_circle'}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-slate-400 font-medium">
-                                        {healthData.health === 'critical'
-                                            ? 'Major risks detected. Immediate replanning recommended.'
-                                            : healthData.health === 'warning'
-                                                ? 'Minor risks detected. Consider optimization review.'
-                                                : 'All systems operational. Project tracking within parameters.'}
-                                    </p>
-                                    {healthData.issues && healthData.issues.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {healthData.issues.map((issue, idx) => (
-                                                <span key={idx} className="px-2 py-1 rounded text-[10px] font-bold bg-white/5 text-slate-400 border border-white/10 uppercase tracking-wider">
-                                                    {issue.replace(/_/g, ' ')}
+
+                                    {/* Health Info */}
+                                    <div>
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <h3 className={`text-lg font-black uppercase tracking-widest ${healthData.health === 'critical'
+                                                ? 'text-red-500'
+                                                : healthData.health === 'overdue'
+                                                    ? 'text-rose-500'
+                                                    : healthData.health === 'warning'
+                                                        ? 'text-amber-500'
+                                                        : 'text-emerald-500'
+                                                }`}>
+                                                {healthData.health === 'overdue' ? '🔴 PROJECT OVERDUE' : healthData.health === 'critical' ? '🔴 CRITICAL ALERT' : healthData.health === 'warning' ? '🟡 WARNING STATE' : '🟢 STABLE OPERATION'}
+                                            </h3>
+                                            {isStaged && (
+                                                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                                                    Replanning Successful
                                                 </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Metrics Display */}
-                            <div className="flex items-center gap-6">
-                                <div className="text-center">
-                                    <div className="text-2xl font-black text-white">{healthData.metrics?.progress || 0}%</div>
-                                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Progress</div>
-                                    {healthData.metrics?.expected_progress > 0 && (
-                                        <div className="text-[9px] text-slate-600 mt-0.5">
-                                            Expected: {healthData.metrics.expected_progress}%
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="w-px h-12 bg-white/10"></div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-black text-white">{healthData.metrics?.days_left || 0}</div>
-                                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Days Left</div>
-                                </div>
-                                <div className="w-px h-12 bg-white/10"></div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-black text-white">{healthData.metrics?.max_load || 0}</div>
-                                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Max Load</div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                {(healthData.health === 'critical' || healthData.health === 'warning') && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-px h-12 bg-white/10 mx-2"></div>
-                                        <button
-                                            onClick={handleSimulateReplan}
-                                            disabled={isSimulating}
-                                            className={`px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all shadow-lg ${healthData.health === 'critical'
-                                                ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/20'
-                                                : 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20'
-                                                }`}
-                                        >
-                                            <span className="material-symbols-outlined text-lg">
-                                                {healthData.health === 'critical' ? 'rocket_launch' : 'psychology'}
+                                            )}
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${healthData.health === 'critical'
+                                                ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                                : healthData.health === 'warning'
+                                                    ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                                    : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                                }`}>
+                                                Risk Score: {healthData.metrics?.risk_score || 0}
                                             </span>
-                                            {isSimulating ? 'Simulating...' : healthData.health === 'critical' ? 'Run Replanning' : 'Review Optimization'}
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setExtensionData({
-                                                    new_deadline: projectData?.deadline ? projectData.deadline.split('T')[0] : '',
-                                                    reason: ''
-                                                });
-                                                setShowDeadlineModal(true);
-                                            }}
-                                            className="px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all border border-white/20 hover:bg-white/10 text-white"
-                                        >
-                                            <span className="material-symbols-outlined text-lg">calendar_month</span>
-                                            Extend
-                                        </button>
+                                        </div>
+                                        <p className="text-sm text-slate-400 font-medium">
+                                            {healthData.health === 'critical'
+                                                ? 'Major risks detected. Immediate replanning recommended.'
+                                                : healthData.health === 'overdue'
+                                                    ? `Original deadline missed by ${Math.abs(healthData.metrics?.days_left || 0)} days. AI recommends timeline recovery.`
+                                                    : healthData.health === 'warning'
+                                                        ? 'Minor risks detected. Consider optimization review.'
+                                                        : 'All systems operational. Project tracking within parameters.'}
+                                        </p>
+                                        {healthData.issues && healthData.issues.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {healthData.issues.map((issue, idx) => (
+                                                    <span key={idx} className="px-2 py-1 rounded text-[10px] font-bold bg-white/5 text-slate-400 border border-white/10 uppercase tracking-wider">
+                                                        {issue.replace(/_/g, ' ')}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+                                </div>
+
+                                {/* Metrics Display */}
+                                <div className="flex items-center gap-6">
+                                    <div className="text-center">
+                                        <div className="text-2xl font-black text-white">{healthData.metrics?.progress || 0}%</div>
+                                        <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Progress</div>
+                                        {healthData.metrics?.expected_progress > 0 && (
+                                            <div className="text-[9px] text-slate-600 mt-0.5">
+                                                Expected: {healthData.metrics.expected_progress}%
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="w-px h-12 bg-white/10"></div>
+                                    <div className="text-center">
+                                        <div className="text-2xl font-black text-white">{healthData.metrics?.days_left || 0}</div>
+                                        <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Days Left</div>
+                                    </div>
+                                    <div className="w-px h-12 bg-white/10"></div>
+                                    <div className="text-center">
+                                        <div className="text-2xl font-black text-white">{healthData.metrics?.max_load || 0}</div>
+                                        <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Max Load</div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    {(healthData.health === 'critical' || healthData.health === 'warning' || healthData.health === 'overdue') && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-px h-12 bg-white/10 mx-2"></div>
+                                            <button
+                                                onClick={handleSimulateReplan}
+                                                disabled={isSimulating}
+                                                className={`px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all shadow-lg ${healthData.health === 'overdue'
+                                                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-500/20'
+                                                    : healthData.health === 'critical'
+                                                        ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/20'
+                                                        : 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20'
+                                                    }`}
+                                            >
+                                                <span className="material-symbols-outlined text-lg">
+                                                    {healthData.health === 'overdue' ? 'history_toggle_off' : healthData.health === 'critical' ? 'rocket_launch' : 'psychology'}
+                                                </span>
+                                                {isSimulating ? 'Analyzing...' : healthData.health === 'overdue' ? 'Apply Recovery Plan' : healthData.health === 'critical' ? 'Run Replanning' : 'Review Optimization'}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setExtensionData({
+                                                        new_deadline: projectData?.deadline ? projectData.deadline.split('T')[0] : '',
+                                                        reason: ''
+                                                    });
+                                                    setShowDeadlineModal(true);
+                                                }}
+                                                className="px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/40 shadow-emerald-500/5"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">calendar_month</span>
+                                                Extend
+                                            </button>
+                                            {healthData.health === 'overdue' && (
+                                                <button
+                                                    className="px-4 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-2 transition-all border border-rose-500/20 text-rose-400 hover:bg-rose-500/10"
+                                                    onClick={() => alert("Scope reduction wizard would open here.")}
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">content_cut</span>
+                                                    Reduce Scope
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
 
 
@@ -537,7 +600,7 @@ const ProjectDetailsPage = () => {
                                     return (
                                         <div key={idx} className={`glass-panel border ${statusLabel === 'Done' ? 'border-emerald-500/30' : 'border-white/5'} rounded-lg p-5 hover:border-primary/40 transition-all group hover:bg-white/[0.02] relative overflow-hidden`}>
                                             {/* Status Badge */}
-                                            <div className={`absolute top-0 right-0 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] border-l border-b border-white/10 rounded-bl-xl shadow-lg ${statusColor}`}>
+                                            <div className={`absolute top-0 right-0 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] border-l border-b border-white/10 rounded-bl-xl shadow-lg ${statusColor}`}>
                                                 {statusLabel}
                                             </div>
 
@@ -740,6 +803,17 @@ const ProjectDetailsPage = () => {
                                         </button>
                                     )}
 
+                                    {healthData.health === 'overdue' && (
+                                        <button
+                                            onClick={handleSimulateReplan}
+                                            disabled={isSimulating}
+                                            className="w-full py-3 bg-rose-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-lg shadow-[0_0_20px_rgba(225,29,72,0.3)] hover:bg-rose-500 transition-all flex items-center justify-center gap-2 active:scale-95"
+                                        >
+                                            {isSimulating ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <span className="material-symbols-outlined text-lg">history_toggle_off</span>}
+                                            Apply Recovery Plan
+                                        </button>
+                                    )}
+
                                     {healthData.health === 'critical' && (
                                         <button
                                             onClick={handleSimulateReplan}
@@ -773,10 +847,10 @@ const ProjectDetailsPage = () => {
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
 
             {/* Footer */}
-            <footer className="h-16 shrink-0 glass-panel border-t border-white/10 px-6 z-50 flex items-center justify-between">
+            < footer className="h-16 shrink-0 glass-panel border-t border-white/10 px-6 z-50 flex items-center justify-between" >
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2 text-emerald-500">
                         <span className="material-symbols-outlined text-lg font-bold">verified</span>
@@ -808,140 +882,205 @@ const ProjectDetailsPage = () => {
                         <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">terminal</span>
                     </button>
                 </div>
-            </footer>
+            </footer >
 
             {/* Background Decorative Blurs */}
-            <div className="fixed top-0 right-0 -z-10 w-[600px] h-[600px] bg-primary/5 blur-[120px] pointer-events-none opacity-50"></div>
+            < div className="fixed top-0 right-0 -z-10 w-[600px] h-[600px] bg-primary/5 blur-[120px] pointer-events-none opacity-50" ></div >
             <div className="fixed bottom-0 left-0 -z-10 w-[600px] h-[600px] bg-accent-amber/5 blur-[120px] pointer-events-none opacity-50"></div>
 
             {/* Replanning Simulation Drawer (Step 4 & 5) */}
-            {showSimulation && (
-                <div className="fixed inset-0 z-[100] flex items-end justify-center pointer-events-none">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={() => setShowSimulation(false)}></div>
-                    <div className="w-full max-w-6xl glass-panel border-t border-white/10 rounded-t-3xl shadow-[0_-20px_50px_rgba(0,0,0,0.5)] pointer-events-auto animate-slide-up flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/40">
-                                    <span className="material-symbols-outlined text-primary text-3xl">psychology</span>
+            {
+                showSimulation && (
+                    <div className="fixed inset-0 z-[100] flex items-end justify-center pointer-events-none">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={() => setShowSimulation(false)}></div>
+                        <div className="w-full max-w-6xl glass-panel border-t border-white/10 rounded-t-3xl shadow-[0_-20px_50px_rgba(0,0,0,0.5)] pointer-events-auto animate-slide-up flex flex-col max-h-[90vh]">
+                            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${healthData?.health === 'overdue' ? 'bg-rose-600/20 border-rose-600/40 text-rose-500' : 'bg-primary/20 border-primary/40 text-primary'}`}>
+                                        <span className="material-symbols-outlined text-3xl">
+                                            {healthData?.health === 'overdue' ? 'history_toggle_off' : 'psychology'}
+                                        </span>
+                                    </div>
+                                    <div className="text-left">
+                                        <h2 className={`text-xl font-black uppercase tracking-widest ${healthData?.health === 'overdue' ? 'text-rose-500' : 'text-white'}`}>
+                                            {healthData?.health === 'overdue' ? 'Neural Recovery Simulator' : 'Neural Re-Optimization Simulator'}
+                                        </h2>
+                                        <p className="text-xs text-slate-500 font-mono tracking-widest">{simulationData?.summary}</p>
+                                    </div>
                                 </div>
-                                <div className="text-left">
-                                    <h2 className="text-xl font-black uppercase tracking-widest text-white">Neural Re-Optimization Simulator</h2>
-                                    <p className="text-xs text-slate-500 font-mono tracking-widest">{simulationData?.summary}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowSimulation(false)} className="p-2 hover:bg-white/5 rounded-full text-slate-400">
-                                <span className="material-symbols-outlined text-2xl">close</span>
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-8 grid grid-cols-2 gap-12 custom-scrollbar">
-                            {/* Current Plan (Comparison) */}
-                            <div className="space-y-6">
-                                <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-500 border-b border-white/5 pb-2">Active Plan (Legacy)</h3>
-                                <div className="space-y-3 opacity-40">
-                                    {projectData?.tasks.map((task, i) => (
-                                        <div key={i} className="p-4 border border-white/5 rounded-lg flex items-center justify-between">
-                                            <div className="text-left font-bold text-sm text-white uppercase">{task.title}</div>
-                                            <div className="text-[10px] font-mono text-slate-500 tracking-widest uppercase">NODE: {String(task.assigned_to).substring(0, 6)}</div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <button onClick={() => setShowSimulation(false)} className="p-2 hover:bg-white/5 rounded-full text-slate-400">
+                                    <span className="material-symbols-outlined text-2xl">close</span>
+                                </button>
                             </div>
 
-                            {/* Proposed Plan (Simulation) */}
-                            <div className="space-y-6">
-                                <h3 className="text-sm font-black uppercase tracking-[0.3em] text-emerald-500 border-b border-emerald-500/20 pb-2">Simulated Result (Optimized)</h3>
-                                <div className="space-y-3">
-                                    {simulationData?.proposed_assignments.map((assignment, i) => (
-                                        <div key={i} className="p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-lg flex items-center justify-between animate-pulse-slow">
-                                            <div className="text-left">
-                                                <div className="font-bold text-sm text-white uppercase">{assignment.suggested_task}</div>
-                                                <div className="text-[10px] font-mono text-emerald-400 tracking-widest uppercase">{assignment.profile.full_name}</div>
+                            <div className="flex-1 overflow-y-auto p-8 grid grid-cols-2 gap-12 custom-scrollbar">
+                                {/* Current Plan (Comparison) */}
+                                <div className="space-y-6">
+                                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-500 border-b border-white/5 pb-2">Active Plan (Legacy)</h3>
+                                    <div className="space-y-3 opacity-40">
+                                        {projectData?.tasks.map((task, i) => (
+                                            <div key={i} className="p-4 border border-white/5 rounded-lg flex items-center justify-between">
+                                                <div className="text-left font-bold text-sm text-white uppercase">{task.title}</div>
+                                                <div className="text-[10px] font-mono text-slate-500 tracking-widest uppercase">NODE: {String(task.assigned_to).substring(0, 6)}</div>
                                             </div>
-                                            <div className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded uppercase">NEW ROUTE</div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Proposed Plan (Simulation) */}
+                                <div className="space-y-6">
+                                    <h3 className={`text-sm font-black uppercase tracking-[0.3em] border-b pb-2 ${healthData?.health === 'overdue' ? 'text-rose-500 border-rose-500/20' : 'text-emerald-500 border-emerald-500/20'}`}>
+                                        {healthData?.health === 'overdue' ? 'Recovery Plan (Active)' : 'Simulated Result (Optimized)'}
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {simulationData?.proposed_assignments.map((assignment, i) => (
+                                            <div key={i} className={`p-4 border rounded-lg flex items-center justify-between animate-pulse-slow ${healthData?.health === 'overdue' ? 'border-rose-500/20 bg-rose-500/5' : 'border-emerald-500/20 bg-emerald-500/5'}`}>
+                                                <div className="text-left">
+                                                    <div className="font-bold text-sm text-white uppercase">{assignment.suggested_task}</div>
+                                                    <div className={`text-[10px] font-mono tracking-widest uppercase ${healthData?.health === 'overdue' ? 'text-rose-400' : 'text-emerald-400'}`}>{assignment.profile.full_name}</div>
+                                                </div>
+                                                <div className={`px-2 py-1 text-[10px] font-black rounded uppercase ${healthData?.health === 'overdue' ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                                                    {healthData?.health === 'overdue' ? 'RECOVERY ACTION' : 'NEW ROUTE'}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={`p-8 border-t border-white/10 ${healthData?.health === 'overdue' ? 'bg-rose-900/10' : 'bg-white/5'} flex items-center justify-between pointer-events-auto`}>
+                                <div className="flex items-center gap-4 text-slate-400 italic text-sm">
+                                    <span className={`material-symbols-outlined ${healthData?.health === 'overdue' ? 'text-rose-500' : 'text-emerald-500'}`}>info</span>
+                                    {healthData?.health === 'overdue'
+                                        ? `Proposing ${simulationData?.proposed_tasks.length} critical recovery actions to restore timeline.`
+                                        : `Proposing ${simulationData?.proposed_tasks.length} module adjustments for optimal neural balance.`}
+                                </div>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setShowSimulation(false)}
+                                        className="px-6 py-3 rounded-lg border border-white/10 text-white font-black text-xs uppercase tracking-widest hover:bg-white/5"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleStageSimulation}
+                                        className={`px-8 py-3 rounded-lg font-black text-sm uppercase tracking-widest shadow-xl flex items-center gap-2 transition-all active:scale-95 ${healthData?.health === 'overdue'
+                                            ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20'
+                                            : 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/20'
+                                            }`}
+                                    >
+                                        <span className="material-symbols-outlined">check_circle</span>
+                                        {healthData?.health === 'overdue' ? 'Stage Recovery Plan' : 'Stage Optimization'}
+                                    </button>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )
+            }
 
-                        <div className="p-8 border-t border-white/10 bg-white/5 flex items-center justify-between pointer-events-auto">
-                            <div className="flex items-center gap-4 text-slate-400 italic text-sm">
-                                <span className="material-symbols-outlined text-emerald-500">info</span>
-                                Proposing {simulationData?.proposed_tasks.length} module adjustments for optimal neural balance.
+            {
+                showDeadlineModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
+                        <div className="glass-panel border border-primary/30 rounded-2xl max-w-md w-full p-8 flex flex-col gap-6 animate-in zoom-in duration-300">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary">calendar_month</span>
+                                    Extend Project Deadline
+                                </h2>
+                                <button onClick={() => setShowDeadlineModal(false)} className="text-slate-400 hover:text-white transition-colors">
+                                    <span className="material-symbols-outlined text-2xl">close</span>
+                                </button>
                             </div>
-                            <div className="flex gap-4">
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">New Neural Deadline</label>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            min={new Date().toISOString().split('T')[0]}
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary/50 outline-none transition-all cursor-pointer [color-scheme:dark]"
+                                            value={extensionData.new_deadline}
+                                            onChange={(e) => setExtensionData({ ...extensionData, new_deadline: e.target.value })}
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                            <span className="material-symbols-outlined text-lg">calendar_today</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Extension Reason (Sent to Team)</label>
+                                    <textarea
+                                        className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary/50 outline-none transition-all h-24 resize-none"
+                                        placeholder="Enter reason for extension..."
+                                        value={extensionData.reason}
+                                        onChange={(e) => setExtensionData({ ...extensionData, reason: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3 pt-2">
                                 <button
-                                    onClick={() => setShowSimulation(false)}
-                                    className="px-6 py-3 rounded-lg border border-white/10 text-white font-black text-xs uppercase tracking-widest hover:bg-white/5"
+                                    onClick={handleExtendDeadline}
+                                    className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-black font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                                 >
-                                    Cancel Adjustments
+                                    <span className="material-symbols-outlined">verified</span>
+                                    Confirm Extension
+                                </button>
+                                <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest">
+                                    Confirming will notify all assigned team members and recalculate project health metrics.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Replanning Success Modal */}
+            {
+                showSuccessModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[120] flex items-center justify-center p-6">
+                        <div className="glass-panel border border-emerald-500/30 rounded-2xl max-w-md w-full p-8 flex flex-col gap-6 animate-in zoom-in duration-300 relative overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.2)]">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)]"></div>
+
+                            <div className="flex flex-col items-center text-center gap-4 py-4">
+                                <div className="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.2)] mb-2 animate-bounce-slow">
+                                    <span className="material-symbols-outlined text-6xl text-emerald-500">check_circle</span>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-3">Re-Optimization Complete</h2>
+                                    <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                                        Project trajectory has been updated. New tasks assigned and deadlines synchronized across all neural nodes.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3 pt-2">
+                                <button
+                                    onClick={() => navigate('/admin/dashboard')}
+                                    className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                                >
+                                    <span className="material-symbols-outlined">dashboard</span>
+                                    Return to Dashboard
                                 </button>
                                 <button
-                                    onClick={handleStageSimulation}
-                                    className="px-8 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+                                    onClick={() => {
+                                        setShowSuccessModal(false);
+                                        fetchProjectDetails(); // Refresh view
+                                    }}
+                                    className="w-full py-3 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white font-bold uppercase tracking-widest transition-all text-xs"
                                 >
-                                    <span className="material-symbols-outlined">check_circle</span>
-                                    Stage Optimization
+                                    Stay on Page
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* ⏰ DEADLINE EXTENSION MODAL */}
-            {showDeadlineModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
-                    <div className="glass-panel border border-primary/30 rounded-2xl max-w-md w-full p-8 flex flex-col gap-6 animate-in zoom-in duration-300">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">calendar_month</span>
-                                Extend Project Deadline
-                            </h2>
-                            <button onClick={() => setShowDeadlineModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                                <span className="material-symbols-outlined text-2xl">close</span>
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">New Neural Deadline</label>
-                                <input
-                                    type="date"
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary/50 outline-none transition-all"
-                                    value={extensionData.new_deadline}
-                                    onChange={(e) => setExtensionData({ ...extensionData, new_deadline: e.target.value })}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Extension Reason (Sent to Team)</label>
-                                <textarea
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary/50 outline-none transition-all h-24 resize-none"
-                                    placeholder="Enter reason for extension..."
-                                    value={extensionData.reason}
-                                    onChange={(e) => setExtensionData({ ...extensionData, reason: e.target.value })}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-3 pt-2">
-                            <button
-                                onClick={handleExtendDeadline}
-                                className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-black font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                            >
-                                <span className="material-symbols-outlined">verified</span>
-                                Confirm Extension
-                            </button>
-                            <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest">
-                                Confirming will notify all assigned team members and recalculate project health metrics.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

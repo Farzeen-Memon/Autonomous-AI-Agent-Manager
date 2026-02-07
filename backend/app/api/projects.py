@@ -21,7 +21,7 @@ class TaskStatusUpdate(BaseModel):
     status: str
 
 class HealthResponse(BaseModel):
-    health: str # stable | warning | critical
+    health: str # stable | warning | critical | overdue
     issues: List[str]
     metrics: dict
 
@@ -579,7 +579,7 @@ async def get_project_health(
         if days_left < 0:
             issues.append("deadline_overdue")
             risk_score += 50
-            health = "critical"
+            health = "overdue" # New strict state
         elif days_left < 3:
             issues.append("deadline_critical")
             risk_score += 20
@@ -661,12 +661,20 @@ async def simulate_replan_project(
         planner = PlannerAgent()
         required_skills_list = [skill.skill_name for skill in project.required_skills]
         
+        
         days_remaining = 7
+        is_overdue = False
+        
         if project.deadline:
             try:
                 deadline_dt = datetime.fromisoformat(project.deadline.replace('Z', '+00:00'))
-                days_remaining = (deadline_dt.date() - datetime.utcnow().date()).days
-                days_remaining = max(1, days_remaining)
+                delta_days = (deadline_dt.date() - datetime.utcnow().date()).days
+                
+                if delta_days < 0:
+                    is_overdue = True
+                    days_remaining = 7 # Default recovery sprint
+                else:
+                    days_remaining = max(1, delta_days)
             except: pass
 
         plan = await planner.plan(
@@ -674,7 +682,8 @@ async def simulate_replan_project(
             project_description=project.description,
             required_skills=required_skills_list,
             experience_required=project.experience_required,
-            days_remaining=days_remaining
+            days_remaining=days_remaining,
+            is_overdue=is_overdue
         )
         tasks = plan.get("tasks", [])
         
@@ -742,6 +751,8 @@ async def apply_replan_project(
         updated_tasks = []
         task_assignments = {}
         rerouted_notifications = []
+        new_task_count = 0
+
 
         for t_dict in tasks:
             title = t_dict["title"]
@@ -751,6 +762,8 @@ async def apply_replan_project(
             if title in current_tasks:
                 status = current_tasks[title].status
                 old_assignee = current_tasks[title].assigned_to
+            else:
+                new_task_count += 1
 
             # Find new assignment
             match = next((a for a in assignments if a["suggested_task"] == title), None)
@@ -795,6 +808,28 @@ async def apply_replan_project(
         # 🚀 FINALIZE PROJECT (Deploy to Portfolio)
         project.status = ProjectStatus.FINALIZED
         
+        # 📈 OPTIMIZATION TRACKING
+        # Always increment on replan application
+        if not hasattr(project, 'optimization_cycles'): project.optimization_cycles = 0
+        if not hasattr(project, 'optimization_history'): project.optimization_history = []
+        
+        project.optimization_cycles += 1
+        
+        # Construct summary
+        changes = []
+        rerouted_count = len(rerouted_notifications)
+        if rerouted_count > 0: changes.append(f"{rerouted_count} tasks rerouted")
+        if new_task_count > 0: changes.append(f"{new_task_count} new tasks added")
+        
+        summary_text = ", ".join(changes) if changes else "Strategic realignment"
+        reason = "AI Load Balancing" if rerouted_count > 0 else ("Scope Expansion" if new_task_count > 0 else "Manual Optimization")
+        
+        project.optimization_history.append({
+            "date": datetime.utcnow(),
+            "reason": reason,
+            "changes_summary": summary_text
+        })
+
         project.updated_at = datetime.utcnow()
         await project.save()
         
