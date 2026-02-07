@@ -3,14 +3,14 @@ services:
   - type: web
     name: nexo-backend
     env: python
-    region: singapore # Optional: defaulting to closer region if possible, or omit for US
+    region: singapore # Optional
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: MONGODB_URL
-        sync: false # User will input this in dashboard
+        sync: false
       - key: DATABASE_NAME
         value: nexo_db
       - key: SECRET_KEY
@@ -19,16 +19,18 @@ services:
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 30
-      # AI API Keys - User must provide these
       - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: FRONTEND_URL
+        fromService:
+            type: static
+            name: nexo-frontend
 
+staticSites:
   # Frontend Service (React/Vite)
-  - type: static
-    name: nexo-frontend
-    env: static
+  - name: nexo-frontend
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
     routes:
