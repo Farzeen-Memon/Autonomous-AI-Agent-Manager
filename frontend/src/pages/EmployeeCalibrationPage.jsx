@@ -32,10 +32,6 @@ const EmployeeCalibrationPage = () => {
         });
     };
 
-    const handleBackToHub = (e) => {
-        if (e) e.preventDefault();
-        navigate('/role-selection');
-    };
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
@@ -189,28 +185,39 @@ const EmployeeCalibrationPage = () => {
         <div className="employee-calibration-container font-display text-white min-h-screen relative overflow-x-hidden">
             <div className="fixed inset-0 grid-bg pointer-events-none z-0"></div>
             <div className="relative z-10 flex flex-col min-h-screen">
-                <header className="flex items-center justify-between border-b border-white/5 px-10 py-5 bg-[#0F0C1D]/80 backdrop-blur-xl">
-                    <div className="flex items-center gap-3">
-                        <Logo />
+                <header className="flex items-center justify-between border-b border-white/5 px-10 py-4 bg-[#0F0C1D]/90 backdrop-blur-md">
+                    <div className="flex items-center gap-6">
+                        <button
+                            onClick={() => navigate('/role-selection')}
+                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors bg-white/5 rounded-lg border border-white/5 hover:border-primary/30"
+                        >
+                            <span className="material-symbols-outlined text-sm">arrow_back</span>
+                            Back
+                        </button>
+                        <div className="flex items-center gap-3">
+                            <Logo textClassName="text-xl font-bold tracking-tighter uppercase" />
+                            <span className="text-primary opacity-50 font-light text-xl mt-1 tracking-tighter uppercase -ml-1">Employee</span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-8">
                         <nav className="hidden md:flex items-center gap-8">
-                            <a className="text-[10px] uppercase tracking-widest font-bold opacity-40 hover:opacity-100 transition-opacity" href="#network">Network</a>
-                            <a className="text-[10px] uppercase tracking-widest font-bold text-primary" href="#identity">Operational Identity</a>
-                            <a className="text-[10px] uppercase tracking-widest font-bold opacity-40 hover:opacity-100 transition-opacity" href="#protocols">Protocols</a>
+                            <a className="text-xs uppercase tracking-widest font-medium opacity-60 hover:opacity-100 transition-opacity" href="#">Calibration</a>
+                            <a className="text-xs uppercase tracking-widest font-medium opacity-60 hover:opacity-100 transition-opacity" href="#">Node Logs</a>
                         </nav>
-                        <div className="h-6 w-[1px] bg-white/10"></div>
-                        <div className="flex items-center gap-4">
+                        <div className="h-8 w-[1px] bg-white/10"></div>
+                        <div className="flex items-center gap-3">
                             <div className="text-right hidden sm:block">
-                                <p className="text-[10px] uppercase tracking-tighter opacity-40">System Access</p>
+                                <p className="text-[10px] uppercase tracking-tighter opacity-50">System Access</p>
                                 <p className="text-[10px] font-bold text-secondary tracking-widest uppercase">Employee Tier 1</p>
                             </div>
-                            <div className="size-9 rounded-full border border-white/10 p-0.5 overflow-hidden flex items-center justify-center bg-white/5">
-                                {user?.profile?.avatar_url ? (
-                                    <img src={user.profile.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
-                                ) : (
-                                    <span className="material-symbols-outlined text-xs text-white/30">person</span>
-                                )}
+                            <div className="rounded-full border border-white/10 p-1">
+                                <div className="size-8 rounded-full flex items-center justify-center bg-white/5 overflow-hidden">
+                                    {user?.profile?.avatar_url ? (
+                                        <img src={user.profile.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                                    ) : (
+                                        <span className="material-symbols-outlined text-sm text-white/30">person</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -460,15 +467,7 @@ const EmployeeCalibrationPage = () => {
                                 </div>
                             </div>
 
-                            <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-8 pt-8 border-t border-white/5">
-                                <a
-                                    href="#back"
-                                    onClick={handleBackToHub}
-                                    className="text-[18px] uppercase tracking-[0.2em] font-bold text-white/40 hover:text-white flex items-center gap-2 transition-all"
-                                >
-                                    <span className="material-symbols-outlined text-sm">keyboard_backspace</span>
-                                    Back to Hub
-                                </a>
+                            <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 pt-8 border-t border-white/5">
                                 <button
                                     onClick={handleSubmit}
                                     className="w-full sm:w-auto px-12 py-6 premium-button-gradient text-white font-bold rounded-[20px] uppercase tracking-[0.2em] text-xl flex items-center justify-center gap-3 transition-all group"

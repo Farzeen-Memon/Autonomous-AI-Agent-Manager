@@ -205,7 +205,7 @@ const AdminProvisioningPage = () => {
                                         ) : (
                                             <>
                                                 <span className="material-symbols-outlined text-primary/40 text-4xl mb-1">add_a_photo</span>
-                                                <span className="text-[9px] uppercase font-bold text-primary/40">Upload Headshot</span>
+                                                <span className="text-[14px] uppercase font-bold text-primary/40">Upload Headshot</span>
                                             </>
                                         )}
                                         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -214,7 +214,7 @@ const AdminProvisioningPage = () => {
                                         <span className="material-symbols-outlined text-background-dark text-xs block">verified</span>
                                     </div>
                                 </div>
-                                <p className="text-[10px] uppercase tracking-widest text-primary font-bold">Professional Headshot</p>
+                                <p className="text-[15px] uppercase tracking-widest text-primary font-bold">Professional Headshot</p>
                             </div>
                             <div className="h-16 w-[1px] bg-primary/20 hidden md:block"></div>
                             <div className="flex gap-4">
@@ -249,17 +249,17 @@ const AdminProvisioningPage = () => {
                         </div>
                     </div>
 
-                    <div className="w-full max-w-xl bg-card-bg/90 border border-primary/20 p-8 rounded-xl backdrop-blur-md shadow-2xl relative overflow-hidden">
+                    <div className="w-full max-w-5xl bg-card-bg/90 border border-primary/20 p-10 rounded-2xl backdrop-blur-md shadow-2xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none">
                             <div className="absolute top-0 right-0 w-[2px] h-8 bg-primary/30"></div>
                             <div className="absolute top-0 right-0 w-8 h-[2px] bg-primary/30"></div>
                         </div>
-                        <form onSubmit={handleAuthorize} className="grid grid-cols-1 gap-6 relative z-10">
+                        <form onSubmit={handleAuthorize} className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 relative z-10">
                             <div className="relative">
-                                <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Full Name</label>
+                                <label className="text-[16px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Full Name</label>
                                 <div className="relative">
                                     <input
-                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[19px]"
+                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-4 px-5 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[24px]"
                                         placeholder="Enter Full Administrator Name"
                                         type="text"
                                         value={name}
@@ -269,10 +269,10 @@ const AdminProvisioningPage = () => {
                                 </div>
                             </div>
                             <div className="relative">
-                                <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Enterprise Email</label>
+                                <label className="text-[16px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Enterprise Email</label>
                                 <div className="relative">
                                     <input
-                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[19px]"
+                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-4 px-5 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[24px]"
                                         placeholder="admin@enterprise-nexo.ai"
                                         type="email"
                                         value={email}
@@ -281,11 +281,11 @@ const AdminProvisioningPage = () => {
                                     <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary opacity-70 text-lg">alternate_email</span>
                                 </div>
                             </div>
-                            <div className="relative">
-                                <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Access Key (Password)</label>
+                            <div className="relative md:col-span-2">
+                                <label className="text-[16px] uppercase font-bold tracking-[0.2em] text-primary mb-2 block">Access Key (Password)</label>
                                 <div className="relative">
                                     <input
-                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-3.5 px-4 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[19px] pr-20"
+                                        className="w-full bg-background-dark/80 border-primary/30 border text-white py-4 px-5 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:opacity-20 text-[24px] pr-20"
                                         placeholder="••••••••••••••••"
                                         type={showPassword ? 'text' : 'password'}
                                         value={password}
@@ -309,32 +309,32 @@ const AdminProvisioningPage = () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="mt-3 grid grid-cols-2 gap-2">
-                                    <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.length ? 'opacity-100' : 'opacity-40'}`}>
-                                        <span className={`w-1 h-1 rounded-full ${passwordRequirements.length ? 'bg-green-400' : 'bg-secondary'}`}></span>
-                                        <span className="text-[8px] uppercase font-bold text-secondary">8+ Characters</span>
+                                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className={`flex items-center gap-2 transition-opacity ${passwordRequirements.length ? 'opacity-100' : 'opacity-40'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${passwordRequirements.length ? 'bg-green-400' : 'bg-secondary'}`}></span>
+                                        <span className="text-[14px] uppercase font-bold text-secondary">8+ Characters</span>
                                     </div>
-                                    <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.uppercase ? 'opacity-100' : 'opacity-40'}`}>
-                                        <span className={`w-1 h-1 rounded-full ${passwordRequirements.uppercase ? 'bg-green-400' : 'bg-secondary'}`}></span>
-                                        <span className="text-[8px] uppercase font-bold text-secondary">Uppercase Letter</span>
+                                    <div className={`flex items-center gap-2 transition-opacity ${passwordRequirements.uppercase ? 'opacity-100' : 'opacity-40'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${passwordRequirements.uppercase ? 'bg-green-400' : 'bg-secondary'}`}></span>
+                                        <span className="text-[14px] uppercase font-bold text-secondary">Uppercase Letter</span>
                                     </div>
-                                    <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.number ? 'opacity-100' : 'opacity-40'}`}>
-                                        <span className={`w-1 h-1 rounded-full ${passwordRequirements.number ? 'bg-green-400' : 'bg-secondary'}`}></span>
-                                        <span className="text-[8px] uppercase font-bold text-secondary">Includes Number</span>
+                                    <div className={`flex items-center gap-2 transition-opacity ${passwordRequirements.number ? 'opacity-100' : 'opacity-40'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${passwordRequirements.number ? 'bg-green-400' : 'bg-secondary'}`}></span>
+                                        <span className="text-[14px] uppercase font-bold text-secondary">Includes Number</span>
                                     </div>
-                                    <div className={`flex items-center gap-1 transition-opacity ${passwordRequirements.special ? 'opacity-100' : 'opacity-40'}`}>
-                                        <span className={`w-1 h-1 rounded-full ${passwordRequirements.special ? 'bg-green-400' : 'bg-secondary'}`}></span>
-                                        <span className="text-[8px] uppercase font-bold text-secondary">Special Symbol</span>
+                                    <div className={`flex items-center gap-2 transition-opacity ${passwordRequirements.special ? 'opacity-100' : 'opacity-40'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${passwordRequirements.special ? 'bg-green-400' : 'bg-secondary'}`}></span>
+                                        <span className="text-[14px] uppercase font-bold text-secondary">Special Symbol</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="mt-10 relative z-10">
-                                <button type="submit" className="w-full px-10 py-4 admin-gradient-btn text-white font-bold rounded-lg uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(139,124,255,0.4)] hover:shadow-[0_0_35px_rgba(139,124,255,0.6)] transition-all flex items-center justify-center gap-3 group relative overflow-hidden">
-                                    <span className="relative z-10">Authorize Admin Access</span>
-                                    <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform relative z-10">bolt</span>
+                            <div className="mt-10 relative z-10 md:col-span-2">
+                                <button type="submit" className="w-full px-10 py-5 admin-gradient-btn text-white font-bold rounded-lg uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(139,124,255,0.4)] hover:shadow-[0_0_35px_rgba(139,124,255,0.6)] transition-all flex items-center justify-center gap-3 group relative overflow-hidden">
+                                    <span className="relative z-10 text-lg">Authorize Admin Access</span>
+                                    <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform relative z-10">bolt</span>
                                     <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                                 </button>
-                                <p className="text-[9px] text-center text-primary/40 mt-4 uppercase tracking-[0.1em]">By authorizing, you accept all root-level operational protocols.</p>
+                                <p className="text-[15px] text-center text-primary/40 mt-6 uppercase tracking-[0.1em]">By authorizing, you accept all root-level operational protocols.</p>
                             </div>
                         </form>
                     </div>
