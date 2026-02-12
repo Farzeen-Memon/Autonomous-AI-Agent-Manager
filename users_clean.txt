@@ -1,0 +1,9 @@
+Users Count: 8
+Email: farzeenmemonn@gmail.com, Role: admin, Name: Farzeen Memon
+Email: priya@gmail.com, Role: employee, Name: Priya
+Email: aarav@gmail.com, Role: employee, Name: Aarav
+Email: pranav@gmail.com, Role: employee, Name: Pranav
+Email: ronn@gmail.com, Role: employee, Name: Ronn Dzuza
+Email: shruti@gmail.com, Role: employee, Name: Shruti Roy
+Email: swejal@gmail.com, Role: employee, Name: Swejal Patade
+Email: shrutika@gmail.com, Role: employee, Name: Shrutika Solunke

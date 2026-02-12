@@ -1,0 +1,83 @@
+--- DIAGNOSING TASK VISIBILITY ---
+
+Total Projects: 7
+
+Project: Movie Recommendation (Status: finalized)
+  Assigned Team IDs (12): ['697712a9b6904740a7afe7df', '697989f3b737dd7e02efc530', '697713e3b6904740a7afe7e6', '697989f3b737dd7e02efc538', '69798b081b69c1761185b156', '6977109cb6904740a7afe7d4', '697989f3b737dd7e02efc534', '697989f3b737dd7e02efc52c', '697d92fafff6a1a66c38857e', '69770bbfcc2ce5ffeb28850f', '69771149b6904740a7afe7d7', '697989f3b737dd7e02efc53c']
+  Total Tasks: 10
+  Assigned Tasks: 5
+    - Task: Database Schema Design -> Assigned To: 69770bbfcc2ce5ffeb28850f
+    - Task: Authentication and Authorization Implementation -> Assigned To: 697989f3b737dd7e02efc530
+    - Task: Core API Development -> Assigned To: 697989f3b737dd7e02efc52c
+    - Task: Frontend UI Development -> Assigned To: 697989f3b737dd7e02efc538
+    - Task: Business Logic Implementation -> Assigned To: 697989f3b737dd7e02efc534
+
+Project: cooking ml (Status: finalized)
+  Assigned Team IDs (6): ['697712a9b6904740a7afe7df', '697713e3b6904740a7afe7e6', '697989f3b737dd7e02efc52c', '697989f3b737dd7e02efc530', '69771149b6904740a7afe7d7', '697989f3b737dd7e02efc538']
+  Total Tasks: 10
+  Assigned Tasks: 5
+    - Task: Frontend UI Development -> Assigned To: 697713e3b6904740a7afe7e6
+    - Task: Business Logic Implementation -> Assigned To: 697989f3b737dd7e02efc52c
+    - Task: Integration Testing -> Assigned To: 69771149b6904740a7afe7d7
+    - Task: DevOps and Infrastructure Setup -> Assigned To: 697989f3b737dd7e02efc530
+    - Task: Security Audit and Compliance -> Assigned To: 697712a9b6904740a7afe7df
+
+Project: masterchef website (Status: finalized)
+  Assigned Team IDs (5): ['697989f3b737dd7e02efc530', '697989f3b737dd7e02efc52c', '697989f3b737dd7e02efc534', '697713e3b6904740a7afe7e6', '697989f3b737dd7e02efc538']
+  Total Tasks: 10
+  Assigned Tasks: 5
+    - Task: Infrastructure Setup and Deployment -> Assigned To: 697989f3b737dd7e02efc530
+    - Task: Frontend UI Development -> Assigned To: 697989f3b737dd7e02efc52c
+    - Task: Business Logic Implementation -> Assigned To: 697989f3b737dd7e02efc534
+    - Task: Core API Endpoints Development -> Assigned To: 697713e3b6904740a7afe7e6
+    - Task: API Integration and Testing -> Assigned To: 697989f3b737dd7e02efc538
+
+Project: railway management system (Status: finalized)
+  Assigned Team IDs (6): ['69770bbfcc2ce5ffeb28850f', '697712a9b6904740a7afe7df', '697713e3b6904740a7afe7e6', '697989f3b737dd7e02efc52c', '697989f3b737dd7e02efc530', '697989f3b737dd7e02efc534']
+  Total Tasks: 10
+  Assigned Tasks: 6
+    - Task: Frontend UI Development -> Assigned To: 69770bbfcc2ce5ffeb28850f
+    - Task: Business Logic Implementation -> Assigned To: 697712a9b6904740a7afe7df
+    - Task: Core API Development -> Assigned To: 697713e3b6904740a7afe7e6
+    - Task: Database Schema Design -> Assigned To: 697989f3b737dd7e02efc52c
+    - Task: DevOps and Infrastructure Setup -> Assigned To: 697989f3b737dd7e02efc530
+    - Task: Integration Testing -> Assigned To: 697989f3b737dd7e02efc534
+
+Project: Untitled Project (Status: draft)
+  Assigned Team IDs (6): ['69770bbfcc2ce5ffeb28850f', '697989f3b737dd7e02efc52c', '697713e3b6904740a7afe7e6', '697989f3b737dd7e02efc538', '6977109cb6904740a7afe7d4', '697712a9b6904740a7afe7df']
+  Total Tasks: 0
+  Assigned Tasks: 0
+
+Project: school management system (Status: draft)
+  Assigned Team IDs (6): ['69770bbfcc2ce5ffeb28850f', '697989f3b737dd7e02efc530', '697989f3b737dd7e02efc52c', '697713e3b6904740a7afe7e6', '697989f3b737dd7e02efc53c', '697989f3b737dd7e02efc538']
+  Total Tasks: 0
+  Assigned Tasks: 0
+
+Project: school management system (Status: finalized)
+  Assigned Team IDs (5): ['69770bbfcc2ce5ffeb28850f', '697713e3b6904740a7afe7e6', '697989f3b737dd7e02efc52c', '697989f3b737dd7e02efc530', '697989f3b737dd7e02efc538']
+  Total Tasks: 10
+  Assigned Tasks: 5
+    - Task: Frontend UI Development -> Assigned To: 69770bbfcc2ce5ffeb28850f
+    - Task: Core API Development -> Assigned To: 697713e3b6904740a7afe7e6
+    - Task: Database Schema Design -> Assigned To: 697989f3b737dd7e02efc52c
+    - Task: DevOps and Infrastructure Setup -> Assigned To: 697989f3b737dd7e02efc530
+    - Task: Business Logic Implementation -> Assigned To: 697989f3b737dd7e02efc538
+
+--- EMPLOYEE PROFILES ---
+Name: Farzeen Memon | ID: 6975b6483ad7e3fe9a0f99e4 | UserID: 6975b6473ad7e3fe9a0f99e3
+Name: Priya | ID: 69770bbfcc2ce5ffeb28850f | UserID: 69770bbfcc2ce5ffeb28850e
+Name: Aarav | ID: 6977109cb6904740a7afe7d4 | UserID: 6977109cb6904740a7afe7d3
+Name: Pranav | ID: 69771149b6904740a7afe7d7 | UserID: 69771149b6904740a7afe7d6
+Name: Ronn Dzuza | ID: 697712a9b6904740a7afe7df | UserID: 697712a9b6904740a7afe7de
+Name: Shruti Roy | ID: 697713e3b6904740a7afe7e6 | UserID: 697713e3b6904740a7afe7e5
+Name: Swejal Patade | ID: 69798b081b69c1761185b156 | UserID: 69798b081b69c1761185b155
+Name: Aarav Kumar | ID: 697989f3b737dd7e02efc528 | UserID: 69770667312ba5d98881a2f2
+Name: Priya Singh | ID: 697989f3b737dd7e02efc52c | UserID: 69770bbfcc2ce5ffeb28850e
+Name: Rohan Patel | ID: 697989f3b737dd7e02efc530 | UserID: 6977109cb6904740a7afe7d3
+Name: Ananya Verma | ID: 697989f3b737dd7e02efc534 | UserID: 69771149b6904740a7afe7d6
+Name: Vikram Sharma | ID: 697989f3b737dd7e02efc538 | UserID: 697712a9b6904740a7afe7de
+Name: Ishita Reddy | ID: 697989f3b737dd7e02efc53c | UserID: 697713e3b6904740a7afe7e5
+Name: Shrutika Solunke | ID: 697d92fafff6a1a66c38857e | UserID: 697d92fafff6a1a66c38857d
+Name: Rohan Patel | ID: 698ac1c0aa0af98e120bdc33 | UserID: 698ac1c0aa0af98e120bdc32
+Name: Ananya Verma | ID: 698ac1c1aa0af98e120bdc38 | UserID: 698ac1c0aa0af98e120bdc37
+Name: Vikram Sharma | ID: 698ac1c2aa0af98e120bdc3d | UserID: 698ac1c1aa0af98e120bdc3c

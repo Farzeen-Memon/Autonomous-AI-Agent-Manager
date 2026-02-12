@@ -54,9 +54,14 @@ const NeuralMappingPage = () => {
 
         try {
             setLoading(true);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
             const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             if (response.ok) {
                 const data = await response.json();
@@ -66,12 +71,13 @@ const NeuralMappingPage = () => {
                     setProject(data.project);
                     setTasks(data.project.tasks || []);
                 }
-                if (data.team) {
+                if (data.team && Array.isArray(data.team)) {
                     // Normalize team data from API specifically for orchestration
-                    const normalizedTeam = data.team.map(m => ({
+                    const normalizedTeam = data.team.filter(m => m && m.profile).map(m => ({
                         ...m,
                         // If it doesn't have assigned_task, we'll let handleDistribute handle it
-                        assigned_task: m.assigned_task || null
+                        assigned_task: m.assigned_task || m.suggested_task || null,
+                        reasoning: m.reasoning || m.suggested_description || ""
                     }));
                     setTeam(normalizedTeam);
                 }
@@ -148,23 +154,6 @@ const NeuralMappingPage = () => {
         fetchProjectDetails(projectId);
     }, [projectId, fetchProjectDetails]);
 
-    // Auto-trigger decomposition if project is loaded but has no tasks
-    useEffect(() => {
-        if (project && tasks.length === 0 && !isDecomposing && !loading) {
-            handleDecompose();
-        }
-    }, [project, tasks.length, isDecomposing, loading]);
-
-    // Auto-trigger distribution if we have tasks and a team from the project matching page but no assignments
-    useEffect(() => {
-        if (tasks.length > 0 && team.length > 0 && team.every(m => !m.assigned_task) && !isDistributing) {
-            const timer = setTimeout(() => {
-                handleDistribute();
-            }, 1500); // Give user a moment to see the tasks
-            return () => clearTimeout(timer);
-        }
-    }, [tasks.length, team, isDistributing, handleDistribute]);
-
     const handleDecompose = async () => {
         setIsDecomposing(true);
         setError(null);
@@ -233,6 +222,23 @@ const NeuralMappingPage = () => {
             setIsDistributing(false);
         }
     };
+
+    // Auto-trigger decomposition if project is loaded but has no tasks
+    useEffect(() => {
+        if (project && tasks.length === 0 && !isDecomposing && !loading && !error) {
+            handleDecompose();
+        }
+    }, [project, tasks.length, isDecomposing, loading, error]);
+
+    // Auto-trigger distribution if we have tasks and a team from the project matching page but no assignments
+    useEffect(() => {
+        if (tasks.length > 0 && team.length > 0 && team.every(m => !m.assigned_task) && !isDistributing && !error) {
+            const timer = setTimeout(() => {
+                handleDistribute();
+            }, 1000); // Give user a moment to see the tasks
+            return () => clearTimeout(timer);
+        }
+    }, [tasks.length, team, isDistributing, error, handleDistribute]);
 
 
     const handleFinalize = async () => {
@@ -332,38 +338,57 @@ const NeuralMappingPage = () => {
         setEditingTask(null);
     };
 
+    // Global Error Guard for the entire component logic
+    if (error && !project && !loading) {
+        return (
+            <div className="orchestration-container min-h-screen flex items-center justify-center bg-[#0F0C1D]">
+                <div className="text-center p-12 glass-panel border-red-500/30 max-w-2xl">
+                    <span className="material-symbols-outlined text-red-500 text-6xl mb-6">dynamic_feed</span>
+                    <h2 className="text-2xl font-bold text-white mb-4 uppercase tracking-tighter">Neural Synchronization Failed</h2>
+                    <p className="text-slate-400 text-sm mb-8 leading-relaxed font-mono">{error}</p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button onClick={() => window.location.reload()} className="px-8 py-4 bg-primary text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all">
+                            Manual Re-Sync
+                        </button>
+                        <button onClick={() => navigate('/admin/dashboard')} className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all">
+                            Abort to Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) {
         return (
-            <div className="orchestration-container min-h-screen flex items-center justify-center">
+            <div className="orchestration-container min-h-screen flex items-center justify-center bg-[#0F0C1D]">
                 <div className="text-center">
-                    {error ? (
-                        <div className="p-8 bg-red-500/10 border border-red-500/20 rounded-2xl max-w-md mx-auto">
-                            <span className="material-symbols-outlined text-red-400 text-5xl mb-4">link_off</span>
-                            <h2 className="text-xl font-bold text-white mb-2 uppercase tracking-tighter">Neural Link Terminated</h2>
-                            <p className="text-slate-400 text-sm mb-6 leading-relaxed">{error}</p>
-                            <div className="flex flex-col gap-3">
-                                <button
-                                    onClick={() => window.location.reload()}
-                                    className="px-6 py-3 bg-primary text-white rounded-lg text-xs font-bold hover:scale-[1.02] transition-all"
-                                >
-                                    Retry Connection
-                                </button>
-                                <button
-                                    onClick={() => navigate('/admin/dashboard')}
-                                    className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold transition-all"
-                                >
-                                    Return to Dashboard
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="core-orb animate-pulse mb-4 mx-auto">
-                                <span className="material-symbols-outlined text-3xl">hub</span>
-                            </div>
-                            <p className="text-slate-400 font-mono text-sm tracking-widest uppercase">Initializing Neural Core...</p>
-                        </>
-                    )}
+                    <div className="core-orb animate-pulse mb-8 mx-auto">
+                        <span className="material-symbols-outlined text-3xl">hub</span>
+                    </div>
+                    <p className="text-slate-400 font-mono text-sm tracking-widest uppercase animate-pulse">Initializing Neural Core...</p>
+                    <div className="mt-8 w-48 h-1 bg-white/5 mx-auto rounded-full overflow-hidden">
+                        <div className="h-full bg-primary loading-bar"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // If we've reached here and still don't have a project, it's an unexpected state
+    if (!project) {
+        return (
+            <div className="orchestration-container min-h-screen flex items-center justify-center bg-[#0F0C1D]">
+                <div className="text-center glass-panel p-12 border-slate-800">
+                    <span className="material-symbols-outlined text-slate-700 text-6xl mb-6">database_off</span>
+                    <h3 className="text-white text-xl font-bold uppercase tracking-widest mb-4">Neural Data Missing</h3>
+                    <p className="text-slate-500 font-mono text-sm max-w-md mx-auto mb-8">
+                        The requested project identity could not be retrieved from the neural vault.
+                        This may happen if the project was deleted or the session expired.
+                    </p>
+                    <button onClick={() => navigate('/admin/dashboard')} className="px-8 py-4 bg-primary text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all">
+                        Return to Portfolio Hub
+                    </button>
                 </div>
             </div>
         );
@@ -592,7 +617,16 @@ const NeuralMappingPage = () => {
                                         <div key={idx} className="flex flex-col items-center gap-2 group">
                                             <div className="relative">
                                                 <img
-                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') || member.profile.avatar_url.startsWith('data:') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
+                                                    src={(() => {
+                                                        const url = member.profile?.avatar_url;
+                                                        const name = member.profile?.full_name || 'User';
+                                                        if (url) {
+                                                            if (url.startsWith('http') || url.startsWith('data:')) return url;
+                                                            const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+                                                            return `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
+                                                        }
+                                                        return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8B7CFF&color=fff`;
+                                                    })()}
                                                     className="w-12 h-12 rounded-full border-2 border-primary/30 group-hover:border-primary transition-all object-cover"
                                                     alt={member.profile?.full_name}
                                                 />
@@ -664,7 +698,16 @@ const NeuralMappingPage = () => {
                                         <div className="flex items-center gap-3">
                                             <div className="relative">
                                                 <img
-                                                    src={member.profile?.avatar_url ? (member.profile.avatar_url.startsWith('http') || member.profile.avatar_url.startsWith('data:') ? member.profile.avatar_url : `${API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL}${member.profile.avatar_url.startsWith('/') ? member.profile.avatar_url : '/' + member.profile.avatar_url}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profile?.full_name || 'User')}&background=8B7CFF&color=fff`}
+                                                    src={(() => {
+                                                        const url = member.profile?.avatar_url;
+                                                        const name = member.profile?.full_name || 'User';
+                                                        if (url) {
+                                                            if (url.startsWith('http') || url.startsWith('data:')) return url;
+                                                            const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+                                                            return `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
+                                                        }
+                                                        return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8B7CFF&color=fff`;
+                                                    })()}
                                                     className="w-10 h-10 rounded-full border border-white/10 object-cover"
                                                     alt={member.profile?.full_name}
                                                 />

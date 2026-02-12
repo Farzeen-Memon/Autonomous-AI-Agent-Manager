@@ -300,7 +300,6 @@ const ProjectMatchingPage = () => {
             if (response.ok) {
                 const data = await response.json();
                 const actualProjectId = data.id || data._id || projectId;
-                localStorage.removeItem('nexo_project_draft');
                 navigate('/admin/neural-mapping', { state: { projectId: actualProjectId, title: title || "Untitled Project" } });
             } else {
                 const err = await response.text();
