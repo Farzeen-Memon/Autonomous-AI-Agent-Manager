@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import auth, employees, projects, notifications
@@ -9,14 +10,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Middleware
+# CORS Middleware — uses FRONTEND_URL env var in production, open in dev
+FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
+allowed_origins = [FRONTEND_URL] if FRONTEND_URL != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace with specific origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.on_event("startup")
 async def startup_event():
