@@ -717,10 +717,75 @@
     }
 
     .auth-nav {
-        padding: 1.5rem;
+        padding: 1rem 1.5rem;
+    }
+
+    .auth-nav-right {
+        display: none; /* Hide status and tags on small screens for cleaner look */
     }
 
     .glass-card {
         padding: 2rem;
+        margin-right: 0; /* REMOVE FIXED MARGIN */
+        margin-left: 0;
+        border-radius: 1.5rem;
+    }
+
+    .replicated-title {
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .auth-form-section {
+        padding: 1rem;
+    }
+
+    .glass-card {
+        padding: 1.5rem;
+        border-radius: 1rem;
+    }
+
+    .logo-text {
+        font-size: 1.25rem;
+    }
+
+    .replicated-title {
+        font-size: 1.5rem;
+        text-align: center;
+    }
+
+    .replicated-subtitle {
+        font-size: 0.875rem;
+        text-align: center;
+    }
+
+    .role-tab {
+        font-size: 14px;
+        padding: 0.5rem;
+    }
+
+    .form-label-replicated, .input-replicated, .recover-link, .signup-text, .signup-link, .login-btn-replicated {
+        font-size: 16px !important;
+    }
+    
+    .signup-link {
+        font-size: 18px !important;
+    }
+
+    .input-replicated {
+        height: 3rem;
+        padding: 0 1rem;
+    }
+
+    .login-btn-replicated {
+        height: 3rem;
+    }
+
+    .footer-stats-row {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
     }
 }
